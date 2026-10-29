@@ -1,0 +1,144 @@
+import mysql from "mysql2/promise";
+
+// Global connection pool to prevent exhausting connections in serverless/Next.js
+let pool: mysql.Pool | null = null;
+
+export function getDbPool(): mysql.Pool | null {
+  const connectionUri = process.env.DATABASE_URL;
+
+  if (!connectionUri) {
+    return null;
+  }
+
+  if (!pool) {
+    const isLocalhost = connectionUri.includes("localhost") || connectionUri.includes("127.0.0.1");
+
+    pool = mysql.createPool({
+      uri: connectionUri,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      // For local MySQL, SSL is off by default; for Aiven/cloud MySQL, rejectUnauthorized: false is used
+      ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } })
+    });
+  }
+
+  return pool;
+}
+
+/**
+ * Initializes MySQL schema (tables for profiles, taste entities, matches, plans, and API cache)
+ * Compatible with Aiven MySQL Free Tier.
+ */
+export async function initDbSchema(): Promise<{ success: boolean; message: string }> {
+  const db = getDbPool();
+  if (!db) {
+    return { success: false, message: "DATABASE_URL not configured. Running in offline/in-memory mode." };
+  }
+
+  try {
+    // 1. Profiles Table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id VARCHAR(64) PRIMARY KEY,
+        display_name VARCHAR(128) NOT NULL,
+        home_city VARCHAR(64) NOT NULL,
+        home_country VARCHAR(64) NOT NULL,
+        target_city VARCHAR(64) NOT NULL,
+        target_university VARCHAR(128) NOT NULL,
+        target_lat DECIMAL(10, 7) NOT NULL,
+        target_lng DECIMAL(10, 7) NOT NULL,
+        major VARCHAR(128) NOT NULL,
+        languages JSON,
+        goals JSON,
+        is_public BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 2. Taste Entities Table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS taste_entities (
+        id VARCHAR(64) PRIMARY KEY,
+        profile_id VARCHAR(64) NOT NULL,
+        domain VARCHAR(32) NOT NULL,
+        qloo_entity_id VARCHAR(128) NOT NULL,
+        name VARCHAR(128) NOT NULL,
+        source ENUM('user', 'inferred') DEFAULT 'user',
+        weight DECIMAL(3, 2) DEFAULT 0.90,
+        tags JSON,
+        INDEX idx_profile (profile_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 3. API Cache Table (TTL Caching for Qloo, Nominatim, Overpass)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS api_cache (
+        cache_key VARCHAR(191) PRIMARY KEY,
+        response_json LONGTEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        INDEX idx_expires (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 4. Matches Table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS matches (
+        id VARCHAR(64) PRIMARY KEY,
+        profile_a VARCHAR(64) NOT NULL,
+        profile_b VARCHAR(64) NOT NULL,
+        score INT NOT NULL,
+        overlap_json JSON,
+        bridges_json JSON,
+        explanation TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    return { success: true, message: "Aiven MySQL tables verified and initialized successfully." };
+  } catch (err: any) {
+    console.error("MySQL init error:", err);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Cache helper: Get cached API response from MySQL
+ */
+export async function getCachedApiResponse<T = any>(key: string): Promise<T | null> {
+  const db = getDbPool();
+  if (!db) return null;
+
+  try {
+    const [rows]: any = await db.query(
+      "SELECT response_json FROM api_cache WHERE cache_key = ? AND expires_at > NOW() LIMIT 1",
+      [key]
+    );
+    if (rows && rows.length > 0) {
+      return JSON.parse(rows[0].response_json);
+    }
+  } catch (e) {
+    console.warn("Cache read error:", e);
+  }
+  return null;
+}
+
+/**
+ * Cache helper: Set cached API response with TTL in minutes
+ */
+export async function setCachedApiResponse(key: string, data: any, ttlMinutes: number = 1440): Promise<void> {
+  const db = getDbPool();
+  if (!db) return;
+
+  try {
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+    await db.query(
+      `INSERT INTO api_cache (cache_key, response_json, expires_at)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE response_json = VALUES(response_json), expires_at = VALUES(expires_at)`,
+      [key, JSON.stringify(data), expiresAt]
+    );
+  } catch (e) {
+    console.warn("Cache write error:", e);
+  }
+}

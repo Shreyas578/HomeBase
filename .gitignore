@@ -1,0 +1,45 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/cache
+
+# Testing & Coverage
+/coverage
+
+# Next.js Build Output
+/.next/
+/out/
+
+# Production Build
+/build
+
+# Debug Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment Variables (Keep .env.example tracked, ignore real secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Scratch & Task Logs
+/scratch/
+task-*.log
+*.log
+
+# Operating System & IDE
+.DS_Store
+*.pem
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
