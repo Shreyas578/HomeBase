@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { StudentProfile, TasteEntity, DomainType } from "@/types";
 import { DEMO_PRIMARY_STUDENT } from "@/data/seedProfiles";
+import { sanitizeString } from "@/lib/sanitize";
 import { Plus, X, Sparkles, MapPin, GraduationCap, Compass, BookOpen, Music, Film, Coffee, Gamepad2 } from "lucide-react";
 
 interface TasteOnboardingProps {
@@ -21,15 +22,16 @@ export const TasteOnboarding: React.FC<TasteOnboardingProps> = ({
   const [isResolving, setIsResolving] = useState(false);
 
   const handleAddEntity = () => {
-    if (!newEntityName.trim()) return;
+    const cleanName = sanitizeString(newEntityName, 80);
+    if (!cleanName) return;
     setIsResolving(true);
 
     setTimeout(() => {
       const newEntity: TasteEntity = {
         id: `custom-${Date.now()}`,
         domain: newEntityDomain,
-        qloo_entity_id: `urn:entity:${newEntityDomain}:${encodeURIComponent(newEntityName.toLowerCase())}`,
-        name: newEntityName.trim(),
+        qloo_entity_id: `urn:entity:${newEntityDomain}:${encodeURIComponent(cleanName.toLowerCase())}`,
+        name: cleanName,
         source: "user",
         weight: 0.9,
         tags: [newEntityDomain, "user-added"],
