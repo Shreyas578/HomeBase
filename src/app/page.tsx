@@ -5,13 +5,11 @@ import Image from "next/image";
 import { StudentProfile, SettleModuleResult } from "@/types";
 import { SettleModule } from "@/components/SettleModule";
 import { ConnectModule } from "@/components/ConnectModule";
-import { LearnModule } from "@/components/LearnModule";
 import { AuthModal } from "@/components/AuthModal";
 import { TasteOnboarding } from "@/components/TasteOnboarding";
 import {
   Compass,
   Users,
-  GraduationCap,
   Sparkles,
   ArrowUpRight,
   RotateCcw,
@@ -32,10 +30,10 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalInitialMode, setAuthModalInitialMode] = useState<"register" | "login">("login");
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<"register" | "login" | "edit">("login");
 
-  // Tab: settle | connect | learn | profile
-  const [activeTab, setActiveTab] = useState<"settle" | "connect" | "learn" | "profile">("settle");
+  // Tab: settle | connect | profile
+  const [activeTab, setActiveTab] = useState<"settle" | "connect" | "profile">("settle");
   const [settleData, setSettleData] = useState<SettleModuleResult | null>(null);
   const [isLoadingSettle, setIsLoadingSettle] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -259,11 +257,11 @@ export default function Home() {
 
             <div className="p-7 rounded-[28px] bg-[#0f1713]/80 border border-white/10 backdrop-blur-md space-y-3 shadow-lg hover:border-emerald-500/40 transition">
               <div className="w-10 h-10 rounded-2xl bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <GraduationCap className="w-5 h-5" />
+                <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-base text-[#f2efe9]">03. Analogous Pedagogy</h3>
+              <h3 className="font-bold text-base text-[#f2efe9]">03. Cultural Taste Intelligence</h3>
               <p className="text-xs text-[#a89f91] font-light leading-relaxed">
-                Understand difficult concepts through tailored metaphors built from your favorite video games and books.
+                Autonomous cross-domain mapping: translates music, cinema, books, and games directly into grounded neighborhood spaces.
               </p>
             </div>
           </div>
@@ -292,12 +290,13 @@ export default function Home() {
       <div className="absolute top-0 right-1/4 w-[650px] h-[650px] bg-crimson-600/15 rounded-full blur-[180px] pointer-events-none" />
       <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-emerald-900/15 rounded-full blur-[160px] pointer-events-none" />
 
-      {/* Auth Modal for re-authenticating or profile settings */}
+      {/* Auth Modal for re-authenticating or editing profile coordinates */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
         initialMode={authModalInitialMode}
+        initialProfile={currentProfile}
         canClose={true}
       />
 
@@ -337,20 +336,12 @@ export default function Home() {
                 02. CONNECT
               </button>
               <button
-                onClick={() => setActiveTab("learn")}
-                className={`hover:text-white transition py-1 ${
-                  activeTab === "learn" ? "text-white font-bold border-b-2 border-crimson-500" : ""
-                }`}
-              >
-                03. LEARN
-              </button>
-              <button
                 onClick={() => setActiveTab("profile")}
                 className={`hover:text-white transition py-1 ${
                   activeTab === "profile" ? "text-white font-bold border-b-2 border-crimson-500" : ""
                 }`}
               >
-                04. TASTE GRAPH
+                03. TASTE GRAPH
               </button>
             </nav>
           </div>
@@ -364,11 +355,15 @@ export default function Home() {
             </div>
 
             <button
-              onClick={() => setActiveTab("profile")}
-              title="Configure Taste & Coordinates"
-              className="p-2.5 rounded-full text-[#a89f91] hover:text-white hover:bg-white/10 transition"
+              onClick={() => {
+                setAuthModalInitialMode("edit");
+                setAuthModalOpen(true);
+              }}
+              title="Edit Profile, Destination Coordinates & Cultural Tastes"
+              className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-crimson-500/40 text-[#dedacb] transition flex items-center gap-1.5 text-xs font-mono font-bold"
             >
-              <Sliders className="w-4 h-4" />
+              <Sliders className="w-3.5 h-3.5 text-crimson-400" />
+              <span className="hidden md:inline">Edit Coordinates</span>
             </button>
 
             <button
@@ -417,7 +412,7 @@ export default function Home() {
 
               <p className="text-sm sm:text-base text-[#a89f91] max-w-xl font-light leading-relaxed">
                 Relocating from <strong className="text-[#dedacb]">{currentProfile.home_city || "Origin"}</strong>. 
-                Your Qloo taste coordinates are actively shaping walking radius maps, classmate affinity rankings, and learning analogies.
+                Your Qloo taste coordinates are actively shaping walking radius maps and classmate affinity rankings.
               </p>
             </div>
 
@@ -472,17 +467,6 @@ export default function Home() {
           </button>
 
           <button
-            onClick={() => setActiveTab("learn")}
-            className={`px-6 py-3 rounded-2xl font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "learn"
-                ? "forest-pill text-white scale-[1.02] shadow-lg"
-                : "bg-[#121915] text-[#a89f91] hover:text-[#dedacb] border border-white/10"
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" /> 03. Learn (Analogous Pedagogy)
-          </button>
-
-          <button
             onClick={() => setActiveTab("profile")}
             className={`px-6 py-3 rounded-2xl font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
               activeTab === "profile"
@@ -490,7 +474,7 @@ export default function Home() {
                 : "bg-[#121915] text-[#a89f91] hover:text-[#dedacb] border border-white/10"
             }`}
           >
-            <Sparkles className="w-4 h-4" /> 04. My Taste Graph ({currentProfile.taste_entities?.length || 0})
+            <Sparkles className="w-4 h-4" /> 03. My Taste Graph ({currentProfile.taste_entities?.length || 0})
           </button>
         </div>
 
@@ -515,7 +499,7 @@ export default function Home() {
               </p>
             </div>
           ) : settleData ? (
-            <SettleModule settleData={settleData} />
+            <SettleModule settleData={settleData} currentProfile={currentProfile} />
           ) : (
             <div className="p-16 rounded-3xl editorial-card text-center space-y-4">
               <p className="text-sm text-[#a89f91]">No active Settle data yet for this city.</p>
@@ -532,10 +516,7 @@ export default function Home() {
         {/* TAB 02: CONNECT */}
         {activeTab === "connect" && <ConnectModule currentProfile={currentProfile} />}
 
-        {/* TAB 03: LEARN */}
-        {activeTab === "learn" && <LearnModule currentProfile={currentProfile} />}
-
-        {/* TAB 04: MY TASTE PROFILE / ONBOARDING */}
+        {/* TAB 03: MY TASTE PROFILE / ONBOARDING */}
         {activeTab === "profile" && (
           <TasteOnboarding
             currentProfile={currentProfile}

@@ -4,9 +4,7 @@ import { StudentProfile } from "@/types";
 import { sanitizeString } from "@/lib/sanitize";
 import { hashPassword, verifyPassword, createSessionToken, verifySessionToken } from "@/lib/auth";
 
-// In-memory user store fallback when MySQL DATABASE_URL is not set or unreachable
-// Maps email -> { profile: StudentProfile, passwordHash: string }
-const inMemoryUsers = new Map<string, { profile: StudentProfile; passwordHash: string }>();
+import { inMemoryUsers } from "@/lib/userStore";
 
 // Ensure DB schema is ready on startup
 let dbSchemaInitialized = false;
@@ -110,63 +108,67 @@ export async function POST(req: NextRequest) {
       let matchedStudent: StudentProfile | null = null;
       let passwordMatched = false;
 
-      // Look up student by exact email in MySQL
-      try {
-        const rows: any = await query(
-          "SELECT * FROM profiles WHERE LOWER(email) = ? LIMIT 1",
-          [email]
-        );
-
-        if (Array.isArray(rows) && rows.length > 0) {
-          const row = rows[0];
-          if (row.password_hash) {
-            passwordMatched = await verifyPassword(password, row.password_hash);
-          }
-
-          if (passwordMatched) {
-            const entityRows: any = await query(
-              "SELECT id, domain, qloo_entity_id, name, source, weight, tags FROM taste_entities WHERE profile_id = ?",
-              [row.id]
-            );
-
-            matchedStudent = {
-              id: row.id,
-              email: row.email,
-              display_name: row.display_name,
-              home_city: row.home_city,
-              home_country: row.home_country,
-              target_city: row.target_city,
-              target_university: row.target_university,
-              target_lat: Number(row.target_lat),
-              target_lng: Number(row.target_lng),
-              major: row.major,
-              languages: typeof row.languages === "string" ? JSON.parse(row.languages) : ["English"],
-              goals: typeof row.goals === "string" ? JSON.parse(row.goals) : ["Settle in new city"],
-              is_public: Boolean(row.is_public),
-              taste_entities: Array.isArray(entityRows) ? entityRows : [],
-              created_at: row.created_at || new Date().toISOString()
-            };
-          }
+      // 1. Look up student in persistent store
+      const memRecord = inMemoryUsers.get(email);
+      if (memRecord) {
+        const valid = await verifyPassword(password, memRecord.passwordHash);
+        if (valid) {
+          matchedStudent = memRecord.profile;
+          passwordMatched = true;
         }
-      } catch (dbErr) {
-        console.warn("Database query during login, trying in-memory store:", dbErr);
       }
 
-      // Check in-memory store if DB did not match
+      // 2. Look up in MySQL if not matched yet
       if (!matchedStudent) {
-        const memRecord = inMemoryUsers.get(email);
-        if (memRecord) {
-          const valid = await verifyPassword(password, memRecord.passwordHash);
-          if (valid) {
-            matchedStudent = memRecord.profile;
-            passwordMatched = true;
+        try {
+          const rows: any = await query(
+            "SELECT * FROM profiles WHERE LOWER(email) = ? LIMIT 1",
+            [email]
+          );
+
+          if (Array.isArray(rows) && rows.length > 0) {
+            const row = rows[0];
+            if (row.password_hash) {
+              passwordMatched = await verifyPassword(password, row.password_hash);
+            }
+
+            if (passwordMatched) {
+              const entityRows: any = await query(
+                "SELECT id, domain, qloo_entity_id, name, source, weight, tags FROM taste_entities WHERE profile_id = ?",
+                [row.id]
+              );
+
+              matchedStudent = {
+                id: row.id,
+                email: row.email,
+                display_name: row.display_name,
+                home_city: row.home_city,
+                home_country: row.home_country,
+                target_city: row.target_city,
+                target_university: row.target_university,
+                target_lat: Number(row.target_lat),
+                target_lng: Number(row.target_lng),
+                major: row.major,
+                languages: typeof row.languages === "string" ? JSON.parse(row.languages) : ["English"],
+                goals: typeof row.goals === "string" ? JSON.parse(row.goals) : ["Settle in new city"],
+                is_public: Boolean(row.is_public),
+                taste_entities: Array.isArray(entityRows) ? entityRows : [],
+                created_at: row.created_at || new Date().toISOString()
+              };
+
+              // Cache into persistent store for immediate subsequent logins
+              inMemoryUsers.set(email, { profile: matchedStudent, passwordHash: row.password_hash });
+            }
           }
+        } catch (dbErr) {
+          console.warn("Database query during login notice:", dbErr);
         }
       }
 
       if (!passwordMatched || !matchedStudent) {
+        console.warn(`[AUTH] Failed login attempt for email: "${email}". User exists in store: ${inMemoryUsers.has(email)}`);
         return NextResponse.json(
-          { error: "Invalid email or password. Please check your credentials." },
+          { error: "Invalid email or password. Please check your credentials or create a new profile." },
           { status: 401 }
         );
       }
@@ -195,11 +197,13 @@ export async function POST(req: NextRequest) {
     const email = sanitizeString(body.email || profile?.email || "", 128).toLowerCase().trim();
     const password = typeof body.password === "string" ? body.password : "";
 
+    const isUpdate = action === "update";
+
     if (!email || !email.includes("@")) {
-      return NextResponse.json({ error: "A valid email address is required for registration." }, { status: 400 });
+      return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
     }
 
-    if (!password || password.length < 6) {
+    if (!isUpdate && (!password || password.length < 6)) {
       return NextResponse.json({ error: "Password must be at least 6 characters long." }, { status: 400 });
     }
 
@@ -207,28 +211,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required profile fields (Display Name & Target City)." }, { status: 400 });
     }
 
-    // Check if user already exists
-    try {
-      const existing: any = await query("SELECT id FROM profiles WHERE LOWER(email) = ? LIMIT 1", [email]);
-      if (Array.isArray(existing) && existing.length > 0) {
+    // Check if user already exists (only error on new registration)
+    if (!isUpdate) {
+      try {
+        const existing: any = await query("SELECT id FROM profiles WHERE LOWER(email) = ? LIMIT 1", [email]);
+        if (Array.isArray(existing) && existing.length > 0) {
+          return NextResponse.json(
+            { error: "An account with this email already exists. Please sign in instead." },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // Ignore if DB not reachable
+      }
+
+      if (inMemoryUsers.has(email)) {
         return NextResponse.json(
           { error: "An account with this email already exists. Please sign in instead." },
           { status: 409 }
         );
       }
-    } catch {
-      // Ignore if DB not reachable
     }
 
-    if (inMemoryUsers.has(email)) {
-      return NextResponse.json(
-        { error: "An account with this email already exists. Please sign in instead." },
-        { status: 409 }
-      );
+    // Hash password securely with PBKDF2 if provided, otherwise preserve existing hash
+    let passwordHash: string | undefined = undefined;
+    if (password) {
+      passwordHash = await hashPassword(password);
+    } else if (isUpdate) {
+      const existingMem = inMemoryUsers.get(email);
+      if (existingMem) passwordHash = existingMem.passwordHash;
     }
-
-    // Hash password securely with PBKDF2
-    const passwordHash = await hashPassword(password);
+    if (!passwordHash) {
+      passwordHash = await hashPassword("homebase_temp_pwd");
+    }
 
     const studentId = profile.id || `student-${Date.now()}`;
     const sanitizedStudent: StudentProfile = {

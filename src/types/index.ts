@@ -37,8 +37,18 @@ export interface StudentProfile {
   languages: string[];
   goals: string[]; // e.g. "I feel lonely", "I'm struggling with CS algorithms", "I miss home food"
   is_public: boolean;
+  is_online?: boolean;
+  last_seen?: string;
   taste_entities: TasteEntity[];
   created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  text: string;
+  timestamp: string;
 }
 
 export interface AgentTraceStep {
@@ -55,7 +65,7 @@ export interface AgentTraceStep {
 export interface VerifiedPlace {
   id: string;
   name: string;
-  category: "cafe" | "restaurant" | "grocery" | "venue" | "cultural" | "nightlife";
+  category: "cafe" | "restaurant" | "grocery" | "venue" | "cultural" | "nightlife" | "cinema" | "library" | "gaming";
   lat: number;
   lng: number;
   address?: string;
@@ -131,6 +141,7 @@ export interface ConnectMatch {
   }[];
   whyYouClick: string;
   suggestedMeetupSpot: VerifiedPlace;
+  suggestedPlaces?: VerifiedPlace[];
   sharedPlaylist: {
     title: string;
     description: string;
@@ -143,32 +154,8 @@ export interface ConnectMatch {
   conversationStarters: string[];
 }
 
-export interface LearnExplanation {
-  subject: string;
-  topic: string;
-  coreExplanation: string;
-  analogyAnchor: {
-    tasteEntity: string;
-    domain: string;
-    analogyText: string;
-    whereItBreaksDown: string;
-  };
-  practicalIntuition: string;
-  miniQuiz: {
-    question: string;
-    options: string[];
-    correctAnswerIndex: number;
-    explanation: string;
-  }[];
-  studySessionMode?: {
-    partnerName: string;
-    sharedReference: string;
-    collaborativeExercise: string;
-  };
-}
-
 export interface QlooOnOffComparison {
-  module: "SETTLE" | "CONNECT" | "LEARN";
+  module: "SETTLE" | "CONNECT";
   plainLLM: {
     title: string;
     output: any;

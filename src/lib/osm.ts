@@ -131,7 +131,10 @@ export async function osmPlacesNearby({
     const res = await fetch(OVERPASS_BASE, {
       method: "POST",
       body: query,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Homebase-Student-Agent-App/1.0 (contact@homebase-app.dev)"
+      }
     });
 
     if (res.ok) {
@@ -149,7 +152,10 @@ export async function osmPlacesNearby({
     const fallbackRes = await fetch(OVERPASS_FALLBACK, {
       method: "POST",
       body: query,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Homebase-Student-Agent-App/1.0 (contact@homebase-app.dev)"
+      }
     });
     if (fallbackRes.ok) {
       const json = await fallbackRes.json();

@@ -4,13 +4,17 @@ import React, { useState } from "react";
 import { getQlooOnOffComparison } from "@/lib/agent";
 import { Zap, AlertTriangle, ShieldCheck, Sparkles, X } from "lucide-react";
 
+import { StudentProfile, VerifiedPlace } from "@/types";
+
 interface QlooToggleProps {
-  module: "SETTLE" | "CONNECT" | "LEARN";
+  module: "SETTLE" | "CONNECT";
+  profile?: StudentProfile | null;
+  places?: VerifiedPlace[];
 }
 
-export const QlooComparisonCard: React.FC<QlooToggleProps> = ({ module }) => {
+export const QlooComparisonCard: React.FC<QlooToggleProps> = ({ module, profile, places }) => {
   const [activeTab, setActiveTab] = useState<"side-by-side" | "qloo-only">("side-by-side");
-  const comparison = getQlooOnOffComparison(module);
+  const comparison = getQlooOnOffComparison(module, profile, places);
 
   return (
     <div className="w-full editorial-card rounded-3xl p-6 sm:p-8 my-6 border border-[#2e3e38] relative overflow-hidden shadow-2xl">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { SettleModuleResult, VerifiedPlace } from "@/types";
+import { SettleModuleResult, VerifiedPlace, StudentProfile } from "@/types";
 import { MapView } from "./MapView";
 import { QlooComparisonCard } from "./QlooComparisonCard";
 import { AgentTrace } from "./AgentTrace";
@@ -25,9 +25,10 @@ import {
 
 interface SettleModuleProps {
   settleData: SettleModuleResult;
+  currentProfile?: StudentProfile | null;
 }
 
-export const SettleModule: React.FC<SettleModuleProps> = ({ settleData }) => {
+export const SettleModule: React.FC<SettleModuleProps> = ({ settleData, currentProfile }) => {
   const [selectedPlace, setSelectedPlace] = useState<VerifiedPlace>(settleData.places[0] || ({} as any));
   const [copiedPlan, setCopiedPlan] = useState(false);
 
@@ -51,18 +52,47 @@ export const SettleModule: React.FC<SettleModuleProps> = ({ settleData }) => {
     setTimeout(() => setCopiedPlan(false), 2500);
   };
 
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+
+  const filterButtons = [
+    { id: "all", label: "Show All", icon: "🌐" },
+    { id: "cafe", label: "Cafe", icon: "☕" },
+    { id: "restaurant", label: "Restro", icon: "🍽️" },
+    { id: "library", label: "Library", icon: "📚" },
+    { id: "cinema", label: "Cinema", icon: "🎬" },
+    { id: "venue", label: "Music", icon: "🎵" },
+    { id: "gaming", label: "Game", icon: "🎮" },
+  ];
+
+  const filteredPlaces = settleData.places.filter((p) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "venue") return p.category === "venue" || p.category === "cultural";
+    return p.category === activeFilter;
+  });
+
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
       case "cafe":
         return <Coffee className="w-4 h-4 text-amber-400" />;
       case "restaurant":
         return <UtensilsCrossed className="w-4 h-4 text-crimson-400" />;
+      case "library":
+        return <Building2 className="w-4 h-4 text-sky-400" />;
+      case "cinema":
+        return <Sparkles className="w-4 h-4 text-pink-400" />;
+      case "venue":
+        return <Compass className="w-4 h-4 text-purple-400" />;
+      case "gaming":
+        return <Compass className="w-4 h-4 text-violet-400" />;
       case "grocery":
         return <ShoppingBag className="w-4 h-4 text-emerald-400" />;
       default:
         return <Building2 className="w-4 h-4 text-[#a89f91]" />;
     }
   };
+
+  const campusLat = settleData.places[0]?.lat || 52.5119;
+  const campusLng = settleData.places[0]?.lng || 13.3265;
 
   return (
     <div className="space-y-10 animate-fadeIn">
@@ -103,7 +133,38 @@ export const SettleModule: React.FC<SettleModuleProps> = ({ settleData }) => {
       <AgentTrace trace={settleData.agentTrace} />
 
       {/* Signature Qloo ON / OFF Toggle */}
-      <QlooComparisonCard module="SETTLE" />
+      <QlooComparisonCard module="SETTLE" profile={currentProfile} places={settleData.places} />
+
+      {/* Category Filter Pill Bar */}
+      <div className="editorial-card rounded-2xl p-3 border border-[#2e3e38] flex flex-wrap items-center gap-2 shadow-lg">
+        <span className="text-[11px] font-mono uppercase font-bold text-[#a89f91] px-2">Filter Places:</span>
+        {filterButtons.map((btn) => {
+          const isActive = activeFilter === btn.id;
+          const count = settleData.places.filter((p) => {
+            if (btn.id === "all") return true;
+            if (btn.id === "venue") return p.category === "venue" || p.category === "cultural";
+            return p.category === btn.id;
+          }).length;
+
+          return (
+            <button
+              key={btn.id}
+              onClick={() => setActiveFilter(btn.id)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition flex items-center gap-1.5 ${
+                isActive
+                  ? "bg-crimson-600 text-white shadow-md shadow-crimson-950/40"
+                  : "bg-[#141d19] text-[#a89f91] border border-[#2e3e38] hover:border-[#4d665c] hover:text-[#dedacb]"
+              }`}
+            >
+              <span>{btn.icon}</span>
+              <span>{btn.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-crimson-800 text-white" : "bg-[#1f2c25] text-[#a89f91]"}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Map & Places Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -111,15 +172,17 @@ export const SettleModule: React.FC<SettleModuleProps> = ({ settleData }) => {
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-[#f2efe9] flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-crimson-500" /> Geographic Node Network
+              <MapPin className="w-4 h-4 text-crimson-500" /> Geographic Node Network & Walking Trajectory
             </span>
-            <span className="text-xs font-mono text-[#a89f91]">OSM OVERPASS TILES</span>
+            <span className="text-xs font-mono text-crimson-400 font-bold">
+              {selectedPlace ? `Trajectory: Campus ➔ ${selectedPlace.name.split(" ")[0]}` : "Select a place for trajectory"}
+            </span>
           </div>
 
           <MapView
-            centerLat={settleData.places[0]?.lat || 52.5119}
-            centerLng={settleData.places[0]?.lng || 13.3265}
-            places={settleData.places}
+            centerLat={campusLat}
+            centerLng={campusLng}
+            places={filteredPlaces}
             selectedPlaceId={selectedPlace?.id}
             onSelectPlace={(p) => setSelectedPlace(p)}
           />
@@ -149,64 +212,92 @@ export const SettleModule: React.FC<SettleModuleProps> = ({ settleData }) => {
         <div className="lg:col-span-5 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-[#f2efe9]">
-              Verified Taste Places ({settleData.places.length})
+              Verified Taste Places ({filteredPlaces.length} of {settleData.places.length})
             </span>
             <span className="text-xs font-mono text-emerald-400 flex items-center gap-1 font-bold">
               <ShieldCheck className="w-3.5 h-3.5" /> 100% LOCATED
             </span>
           </div>
 
-          <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
-            {settleData.places.map((place) => (
-              <div
-                key={place.id}
-                onClick={() => setSelectedPlace(place)}
-                className={`p-5 rounded-2xl cursor-pointer transition-all duration-300 border ${
-                  selectedPlace?.id === place.id
-                    ? "bg-[#18231e] border-crimson-500 shadow-xl shadow-crimson-950/20"
-                    : "bg-[#141d19] border-[#2e3e38] hover:border-[#3d524a]"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="p-3 rounded-xl bg-[#0d1311] border border-[#2e3e38]">
-                      {getCategoryIcon(place.category)}
-                    </span>
-                    <div>
-                      <h4 className="font-bold text-[#f2efe9] text-sm tracking-wide">{place.name}</h4>
-                      <p className="text-xs text-[#a89f91] font-mono">{place.cuisine || place.category}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-mono font-bold text-crimson-400 bg-crimson-950/60 border border-crimson-500/30 px-2 py-0.5 rounded-full">
-                      {place.qloo_affinity_score}%
-                    </span>
-                    <div className="text-[10px] text-[#a89f91] font-mono flex items-center justify-end gap-1 mt-1.5">
-                      <Clock className="w-3 h-3" /> {place.walking_time_mins} min walk
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3.5 text-xs text-[#a89f91] leading-relaxed bg-[#0d1311]/60 p-3 rounded-xl border border-[#2e3e38]">
-                  <span className="text-crimson-400 font-semibold">Taste Rationale: </span>
-                  {place.why_it_fits}
-                </div>
-
-                <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-[#a89f91]">
-                  <span>{place.address}</span>
-                  {place.website && (
-                    <a
-                      href={place.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-crimson-400 hover:text-crimson-300 flex items-center gap-1"
-                    >
-                      Website <ArrowUpRight className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
+          <div className="space-y-3 max-h-[660px] overflow-y-auto pr-1">
+            {filteredPlaces.length === 0 ? (
+              <div className="p-8 text-center text-[#a89f91] font-mono text-xs bg-[#141d19] rounded-2xl border border-[#2e3e38]">
+                No places found in this category. Click &quot;Show All&quot; to see all verified spots.
               </div>
-            ))}
+            ) : (
+              filteredPlaces.map((place) => {
+                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.address || settleData.city}`)}`;
+                const isSelected = selectedPlace?.id === place.id;
+
+                return (
+                  <div
+                    key={place.id}
+                    onClick={() => setSelectedPlace(place)}
+                    className={`p-5 rounded-2xl cursor-pointer transition-all duration-300 border ${
+                      isSelected
+                        ? "bg-[#18231e] border-crimson-500 shadow-xl shadow-crimson-950/20 ring-1 ring-crimson-500/40"
+                        : "bg-[#141d19] border-[#2e3e38] hover:border-[#3d524a]"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="p-3 rounded-xl bg-[#0d1311] border border-[#2e3e38]">
+                          {getCategoryIcon(place.category)}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-[#f2efe9] text-sm tracking-wide">{place.name}</h4>
+                            <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-[#1e2b24] text-[#a89f91] border border-[#2e3e38]">
+                              {place.category}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#a89f91] font-mono">{place.cuisine || place.category}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-mono font-bold text-crimson-400 bg-crimson-950/60 border border-crimson-500/30 px-2 py-0.5 rounded-full">
+                          {place.qloo_affinity_score}%
+                        </span>
+                        <div className="text-[10px] text-[#a89f91] font-mono flex items-center justify-end gap-1 mt-1.5">
+                          <Clock className="w-3 h-3" /> {place.walking_time_mins} min walk ({place.distance_meters}m)
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3.5 text-xs text-[#a89f91] leading-relaxed bg-[#0d1311]/60 p-3 rounded-xl border border-[#2e3e38]">
+                      <span className="text-crimson-400 font-semibold">Taste Rationale: </span>
+                      {place.why_it_fits}
+                    </div>
+
+                    <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono text-[#a89f91] pt-2 border-t border-[#1e2b24]">
+                      <span className="line-clamp-1 max-w-[200px]">{place.address}</span>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 transition"
+                        >
+                          <MapPin className="w-3 h-3" /> Maps ↗
+                        </a>
+                        {place.website && (
+                          <a
+                            href={place.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-crimson-400 hover:text-crimson-300 font-bold flex items-center gap-1 transition"
+                          >
+                            Website <ArrowUpRight className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

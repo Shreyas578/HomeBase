@@ -1,7 +1,38 @@
 import mysql from "mysql2/promise";
 
-// Global connection pool to prevent exhausting connections in serverless/Next.js
 let pool: mysql.Pool | null = null;
+let basePool: mysql.Pool | null = null;
+
+/**
+ * Creates database if it doesn't already exist on the MySQL server.
+ */
+async function ensureDatabaseExists(uriString: string): Promise<void> {
+  try {
+    const url = new URL(uriString.replace("mysql://", "http://"));
+    const dbName = url.pathname.replace(/^\//, "");
+    if (!dbName) return;
+
+    // Connect to server without database specified
+    const host = url.hostname;
+    const port = parseInt(url.port || "3306", 10);
+    const user = decodeURIComponent(url.username || "root");
+    const password = decodeURIComponent(url.password || "");
+    const isLocalhost = host === "localhost" || host === "127.0.0.1";
+
+    const connection = await mysql.createConnection({
+      host,
+      port,
+      user,
+      password,
+      ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } })
+    });
+
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+    await connection.end();
+  } catch (err) {
+    console.warn("Auto CREATE DATABASE check notice:", err);
+  }
+}
 
 export function getDbPool(): mysql.Pool | null {
   const connectionUri = process.env.DATABASE_URL;
@@ -40,6 +71,13 @@ export async function query<T = any>(sql: string, params: any[] = []): Promise<T
  * Compatible with Aiven MySQL Free Tier.
  */
 export async function initDbSchema(): Promise<{ success: boolean; message: string }> {
+  const connectionUri = process.env.DATABASE_URL;
+  if (!connectionUri) {
+    return { success: false, message: "DATABASE_URL not configured. Running in offline/in-memory mode." };
+  }
+
+  await ensureDatabaseExists(connectionUri);
+
   const db = getDbPool();
   if (!db) {
     return { success: false, message: "DATABASE_URL not configured. Running in offline/in-memory mode." };

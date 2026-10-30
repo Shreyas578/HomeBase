@@ -36,7 +36,8 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose?: () => void;
   onAuthSuccess: (student: StudentProfile) => void;
-  initialMode?: "register" | "login";
+  initialMode?: "register" | "login" | "edit";
+  initialProfile?: StudentProfile | null;
   canClose?: boolean;
 }
 
@@ -45,10 +46,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onAuthSuccess,
   initialMode = "login",
+  initialProfile = null,
   canClose = true
 }) => {
-  const [mode, setMode] = useState<"register" | "login">(initialMode);
-  const [step, setStep] = useState<1 | 2>(1); // Step 1: Credentials & Locations, Step 2: Cultural Coordinates
+  const [mode, setMode] = useState<"register" | "login" | "edit">(initialMode);
+  const [step, setStep] = useState<1 | 2>(1);
 
   // Form Credentials
   const [displayName, setDisplayName] = useState("");
@@ -84,6 +86,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isResolving, setIsResolving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Sync form fields if initialProfile is provided (e.g. Editing Coordinates from Dashboard)
+  useEffect(() => {
+    if (initialProfile) {
+      setDisplayName(initialProfile.display_name || "");
+      setEmail(initialProfile.email || "");
+      setMajor(initialProfile.major || "");
+      setHomeCountry(initialProfile.home_country || "");
+      setHomeCity(initialProfile.home_city || "");
+      setTargetCountry(initialProfile.target_country || "");
+      setTargetCity(initialProfile.target_city || "");
+      setTargetUniversity(initialProfile.target_university || "");
+      setTasteEntities(initialProfile.taste_entities || []);
+
+      if (initialProfile.home_country) {
+        const foundHome = Country.getAllCountries().find(
+          (c) => c.name.toLowerCase() === initialProfile.home_country.toLowerCase()
+        );
+        if (foundHome) setHomeCountryCode(foundHome.isoCode);
+      }
+      if (initialProfile.target_country) {
+        const foundTarget = Country.getAllCountries().find(
+          (c) => c.name.toLowerCase() === initialProfile.target_country!.toLowerCase()
+        );
+        if (foundTarget) setTargetCountryCode(foundTarget.isoCode);
+      }
+    }
+    if (initialMode) setMode(initialMode);
+  }, [initialProfile, initialMode, isOpen]);
 
   // 1. ALL 250+ COUNTRIES IN THE WORLD (INSTANT)
   const allCountriesOptions: DropdownOption[] = useMemo(() => {
@@ -205,13 +236,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setAuthError("Please enter a valid email address.");
       return;
     }
-    if (!password || password.length < 6) {
-      setAuthError("Password must be at least 6 characters long.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setAuthError("Passwords do not match.");
-      return;
+    if (mode === "register") {
+      if (!password || password.length < 6) {
+        setAuthError("Password must be at least 6 characters long.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthError("Passwords do not match.");
+        return;
+      }
+    } else if (mode === "edit" && password) {
+      if (password.length < 6) {
+        setAuthError("New password must be at least 6 characters long.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthError("Passwords do not match.");
+        return;
+      }
     }
     if (!homeCountry.trim() || !homeCity.trim()) {
       setAuthError("Please select your hometown country and city.");
@@ -322,8 +364,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsSubmitting(true);
     setAuthError(null);
 
+    const studentId = initialProfile?.id || `student-${Date.now()}`;
     const studentPayload: StudentProfile = {
-      id: `student-${Date.now()}`,
+      id: studentId,
       email: email.trim().toLowerCase(),
       display_name: displayName.trim(),
       home_city: homeCity.trim() || "Pune",
@@ -331,14 +374,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       target_country: targetCountry.trim() || "Germany",
       target_city: targetCity.trim() || "Berlin",
       target_university: targetUniversity.trim() || "Technical University of Berlin (TU Berlin)",
-      target_lat: 52.5119,
-      target_lng: 13.3265,
+      target_lat: initialProfile?.target_lat || 52.5119,
+      target_lng: initialProfile?.target_lng || 13.3265,
       major: major.trim() || "Computer Science",
-      languages: ["English"],
-      goals: ["Discover acoustic study spaces", "Connect with kindred peers", "Master hard concepts"],
+      languages: initialProfile?.languages || ["English"],
+      goals: initialProfile?.goals || ["Discover acoustic study spaces", "Connect with kindred peers", "Master hard concepts"],
       is_public: true,
       taste_entities: tasteEntities,
-      created_at: new Date().toISOString()
+      created_at: initialProfile?.created_at || new Date().toISOString()
     };
 
     try {
@@ -346,9 +389,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "register",
+          action: mode === "edit" ? "update" : "register",
           email: email.trim().toLowerCase(),
-          password,
+          password: password || undefined,
           profile: studentPayload
         })
       });
@@ -507,7 +550,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   Welcome Back
                 </h3>
                 <p className="text-xs text-[#a89f91] font-light">
-                  Sign in with your verified credentials to access your personalized campus map, taste affinity bridges, and analogous learning modules.
+                  Sign in with your verified credentials to access your personalized campus map, taste affinity bridges, and verified local places.
                 </p>
               </div>
 
@@ -852,14 +895,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         ))}
                       </select>
 
-                      <input
-                        type="text"
-                        value={newEntityName}
-                        onChange={(e) => setNewEntityName(e.target.value)}
-                        placeholder={activeDim.placeholder}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddManualEntity()}
-                        className="w-full flex-1 px-4 py-3 rounded-2xl bg-[#0c120f] border border-white/15 text-xs font-mono text-[#dedacb] placeholder-[#576b62] focus:outline-none focus:border-crimson-500 shadow-inner"
-                      />
+                      <div className="relative w-full flex-1">
+                        <input
+                          type="text"
+                          list="dimension-suggestions-list"
+                          value={newEntityName}
+                          onChange={(e) => setNewEntityName(e.target.value)}
+                          placeholder={activeDim.placeholder}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddManualEntity()}
+                          className="w-full px-4 py-3 rounded-2xl bg-[#0c120f] border border-white/15 text-xs font-mono text-[#dedacb] placeholder-[#576b62] focus:outline-none focus:border-crimson-500 shadow-inner"
+                        />
+                        <datalist id="dimension-suggestions-list">
+                          {activeDim.popularSuggestions.map((s) => (
+                            <option key={s} value={s} />
+                          ))}
+                        </datalist>
+                      </div>
 
                       <button
                         type="button"
@@ -870,6 +921,67 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         {isResolving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                         Add Anchor
                       </button>
+                    </div>
+
+                    {/* Popular / Quick-Click Suggestions for Active Dimension */}
+                    <div className="pt-1">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#a89f91] mb-1.5 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                        <span>Popular {activeDim.dimensionLabel} suggestions (click to auto-add):</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto scrollbar-thin">
+                        {activeDim.popularSuggestions.map((item) => {
+                          const isAlreadyAdded = tasteEntities.some(
+                            (e) => e.name.toLowerCase() === item.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              disabled={isAlreadyAdded || isResolving}
+                              onClick={async () => {
+                                setNewEntityName(item);
+                                // Automatically trigger add
+                                setIsResolving(true);
+                                try {
+                                  const res = await fetch(
+                                    `/api/qloo/search?query=${encodeURIComponent(item)}&domain=${activeDim.domain}`
+                                  );
+                                  const json = res.ok ? await res.json() : { results: [] };
+                                  const top = json.results?.[0];
+                                  setTasteEntities((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `entity-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                      domain: activeDim.domain,
+                                      qloo_entity_id: top?.qloo_entity_id || top?.id || `urn:entity:${activeDim.domain}:${encodeURIComponent(item.toLowerCase())}`,
+                                      name: top?.name || item,
+                                      source: "user",
+                                      weight: 0.95,
+                                      tags: Array.from(new Set([...(top?.tags || []), activeDim.tagType, activeDim.categoryLabel.toLowerCase()]))
+                                    }
+                                  ]);
+                                  setNewEntityName("");
+                                } finally {
+                                  setIsResolving(false);
+                                }
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono border transition flex items-center gap-1 ${
+                                isAlreadyAdded
+                                  ? "bg-[#18231e] border-emerald-500/40 text-emerald-300 opacity-60 cursor-default"
+                                  : "bg-[#0c120f] border-white/10 text-[#dedacb] hover:border-crimson-500 hover:text-white cursor-pointer"
+                              }`}
+                            >
+                              <span>{item}</span>
+                              {isAlreadyAdded ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Plus className="w-3 h-3 text-crimson-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 );
