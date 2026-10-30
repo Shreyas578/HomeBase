@@ -13,7 +13,6 @@ import {
   MessageSquare,
   Lock,
   Globe,
-  Check,
   Disc3,
   Flame,
   ArrowRight
@@ -38,38 +37,34 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Banner */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="editorial-card rounded-3xl p-8 sm:p-10 border border-[#2e3e38] shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
-            <Users className="w-4 h-4" /> Module 2: Connect
+          <div className="flex items-center gap-2 text-crimson-400 text-xs font-bold uppercase tracking-widest font-mono">
+            <Users className="w-4 h-4 text-crimson-500" /> Module 02 : Connect
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
+          <h2 className="text-3xl sm:text-4xl font-display font-bold text-[#f2efe9] mt-2 tracking-tight">
             Taste Graph Peer Matching & Discovery Bridges
           </h2>
-          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Matches students not just on identical tastes, but on non-identical yet adjacent "bridges" (e.g. Radiohead ➔ Nils Frahm).
+          <p className="text-sm text-[#a89f91] mt-2 max-w-2xl leading-relaxed font-light">
+            Matches students not just on identical tastes, but on non-identical yet adjacent &quot;bridges&quot; (e.g. Radiohead ➔ Nils Frahm).
             Calculates a transparent formula score, verified midpoint meetup, and shared playlist.
           </p>
         </div>
 
         {/* Privacy Consent Toggle */}
-        <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-3 self-stretch sm:self-auto">
-          {isPublic ? <Globe className="w-4 h-4 text-emerald-400" /> : <Lock className="w-4 h-4 text-slate-400" />}
+        <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] flex items-center gap-4 self-stretch sm:self-auto shadow-md">
+          {isPublic ? <Globe className="w-5 h-5 text-emerald-400" /> : <Lock className="w-5 h-5 text-[#a89f91]" />}
           <div className="text-xs">
-            <div className="font-semibold text-white">Peer Visibility</div>
-            <div className="text-slate-400 text-[10px]">{isPublic ? "Visible to students" : "Private / Hidden"}</div>
+            <div className="font-bold text-[#f2efe9] uppercase tracking-wider font-mono">Peer Visibility</div>
+            <div className="text-[#a89f91] text-[11px] font-mono">{isPublic ? "Visible to students" : "Private / Hidden"}</div>
           </div>
           <button
             onClick={() => setIsPublic(!isPublic)}
-            className={`w-10 h-5 rounded-full transition-colors relative ml-2 ${
-              isPublic ? "bg-indigo-600" : "bg-slate-700"
+            className={`px-3 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-wider font-bold transition ${
+              isPublic ? "bg-emerald-950/80 text-emerald-400 border border-emerald-500/40" : "bg-[#1c2822] text-[#a89f91] border border-[#2e3e38]"
             }`}
           >
-            <div
-              className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${
-                isPublic ? "right-1" : "left-1"
-              }`}
-            />
+            {isPublic ? "Active" : "Hidden"}
           </button>
         </div>
       </div>
@@ -79,8 +74,8 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
 
       {/* Peer Selector Tabs */}
       <div className="space-y-3">
-        <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          Potential Student Matches in {currentProfile.target_city}
+        <span className="text-xs font-extrabold text-[#1c1815] uppercase tracking-wider">
+          Potential Student Matches in {currentProfile.target_city || "Your City"}
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {SEEDED_PEER_STUDENTS.map((peer) => {
@@ -89,19 +84,19 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
               <div
                 key={peer.id}
                 onClick={() => handleSelectPeer(peer)}
-                className={`p-3.5 rounded-2xl cursor-pointer transition border text-left ${
+                className={`p-4 rounded-2xl cursor-pointer transition border text-left shadow-md ${
                   isSelected
-                    ? "bg-indigo-950/60 border-indigo-500 shadow-lg shadow-indigo-500/20"
-                    : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                    ? "bg-[#1c2822] border-crimson-500 shadow-xl ring-2 ring-crimson-500/30 scale-[1.02]"
+                    : "bg-[#141d19] border-[#2e3e38] hover:border-[#dedacb]/40"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-xs">{peer.display_name}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                  <span className="font-bold text-[#dedacb] text-xs font-mono">{peer.display_name}</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-crimson-950/80 text-crimson-400 border border-crimson-500/40">
                     {peer.home_country}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1 line-clamp-1">{peer.major}</div>
+                <div className="text-[11px] text-[#a89f91] mt-1 line-clamp-1">{peer.major}</div>
               </div>
             );
           })}
@@ -112,79 +107,78 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Score & Why you click */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Match Score Card */}
-          <div className="glass-panel rounded-3xl p-6 border border-indigo-500/30 space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="editorial-card rounded-3xl p-6 sm:p-8 border border-[#2e3e38] shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#25332e]">
               <div>
-                <span className="text-xs text-indigo-400 font-mono font-bold uppercase">Compatibility Index</span>
-                <h3 className="text-xl font-bold text-white mt-0.5">
-                  Aarav & {selectedPeer.display_name}
+                <span className="text-xs text-crimson-400 font-mono font-bold uppercase tracking-widest">Compatibility Index</span>
+                <h3 className="text-2xl font-display font-bold text-[#dedacb] mt-0.5">
+                  {currentProfile.display_name || "You"} & {selectedPeer.display_name}
                 </h3>
               </div>
               <div className="text-right">
-                <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+                <span className="text-3xl font-display font-extrabold text-crimson-400">
                   {matchData.matchScore}%
                 </span>
-                <div className="text-[10px] text-slate-400 font-mono">Qloo Resonance</div>
+                <div className="text-[10px] text-[#a89f91] font-mono uppercase">Qloo Resonance</div>
               </div>
             </div>
 
             {/* Formula Breakdown */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] space-y-2">
+              <span className="text-[10px] font-mono tracking-wider font-bold text-[#a89f91] uppercase">
                 Transparent Score Formula
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                <div className="p-2 rounded-xl bg-slate-900">
-                  <div className="text-[10px] text-slate-400">Direct Overlap</div>
-                  <div className="font-bold text-indigo-300 font-mono">
+                <div className="p-2.5 rounded-xl bg-[#18231e] border border-[#2e3e38]">
+                  <div className="text-[10px] text-[#a89f91] font-mono">Direct Overlap</div>
+                  <div className="font-extrabold text-crimson-400 font-mono">
                     +{matchData.scoreFormulaBreakdown.directOverlapScore} pts
                   </div>
                 </div>
-                <div className="p-2 rounded-xl bg-slate-900">
-                  <div className="text-[10px] text-slate-400">Taste Bridges</div>
-                  <div className="font-bold text-purple-300 font-mono">
+                <div className="p-2.5 rounded-xl bg-[#18231e] border border-[#2e3e38]">
+                  <div className="text-[10px] text-[#a89f91] font-mono">Taste Bridges</div>
+                  <div className="font-extrabold text-emerald-400 font-mono">
                     +{matchData.scoreFormulaBreakdown.tasteBridgeScore} pts
                   </div>
                 </div>
-                <div className="p-2 rounded-xl bg-slate-900">
-                  <div className="text-[10px] text-slate-400">Academic</div>
-                  <div className="font-bold text-emerald-300 font-mono">
+                <div className="p-2.5 rounded-xl bg-[#18231e] border border-[#2e3e38]">
+                  <div className="text-[10px] text-[#a89f91] font-mono">Academic</div>
+                  <div className="font-extrabold text-[#dedacb] font-mono">
                     +{matchData.scoreFormulaBreakdown.academicSynergyScore} pts
                   </div>
                 </div>
-                <div className="p-2 rounded-xl bg-slate-900">
-                  <div className="text-[10px] text-slate-400">Proximity</div>
-                  <div className="font-bold text-amber-300 font-mono">
+                <div className="p-2.5 rounded-xl bg-[#18231e] border border-[#2e3e38]">
+                  <div className="text-[10px] text-[#a89f91] font-mono">Proximity</div>
+                  <div className="font-extrabold text-amber-400 font-mono">
                     +{matchData.scoreFormulaBreakdown.neighborhoodProximityScore} pts
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Why You'd Click (Grounded LLM synthesis) */}
-            <div className="p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/20 space-y-2">
-              <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Grounded Friendship Prediction
+            {/* Why You'd Click */}
+            <div className="p-4 rounded-2xl bg-crimson-950/40 border border-crimson-500/30 space-y-2">
+              <span className="text-xs font-mono font-bold text-crimson-300 flex items-center gap-1.5 uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-crimson-400" /> Grounded Friendship Prediction
               </span>
-              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{matchData.whyYouClick}</p>
+              <p className="text-xs sm:text-sm text-[#dedacb] leading-relaxed font-light">{matchData.whyYouClick}</p>
             </div>
 
             {/* Taste Bridges Showcase */}
             <div className="space-y-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-purple-400" /> Adjacent "Taste Bridges"
+              <span className="text-xs font-mono font-bold text-[#dedacb] uppercase tracking-wider flex items-center gap-2">
+                <Flame className="w-3.5 h-3.5 text-emerald-400" /> Adjacent &quot;Taste Bridges&quot;
               </span>
               <div className="space-y-2.5">
                 {matchData.bridgeEntities.map((bridge, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-white">
-                      <span className="text-indigo-400">{bridge.userEntity}</span>
-                      <ArrowRight className="w-3 h-3 text-slate-500" />
-                      <span className="text-purple-400">{bridge.peerEntity}</span>
+                  <div key={idx} className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] space-y-1.5 shadow-md">
+                    <div className="flex items-center gap-2 text-xs font-mono font-bold">
+                      <span className="text-crimson-400">{bridge.userEntity}</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#a89f91]" />
+                      <span className="text-emerald-400">{bridge.peerEntity}</span>
                     </div>
-                    <div className="text-[11px] text-slate-400 font-medium">{bridge.bridgeCategory}</div>
-                    <p className="text-xs text-slate-300 leading-relaxed">{bridge.explanation}</p>
+                    <div className="text-[11px] text-[#a89f91] font-mono">{bridge.bridgeCategory}</div>
+                    <p className="text-xs text-[#dedacb] leading-relaxed font-light">{bridge.explanation}</p>
                   </div>
                 ))}
               </div>
@@ -194,59 +188,58 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
 
         {/* Right: Verified Meetup Spot & Shared Playlist */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Settle-Fed Meetup Spot */}
-          <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
-            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-              <MapPin className="w-4 h-4" /> First Meetup Spot (OSM Verified)
+          <div className="editorial-card rounded-3xl p-6 border border-[#2e3e38] shadow-xl space-y-4">
+            <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-emerald-400" /> First Meetup Spot (OSM Verified)
             </span>
-            <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+            <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] space-y-2">
               <div className="flex items-start justify-between">
                 <div>
-                  <h4 className="font-bold text-white text-base">{matchData.suggestedMeetupSpot.name}</h4>
-                  <p className="text-xs text-slate-400">{matchData.suggestedMeetupSpot.address}</p>
+                  <h4 className="font-bold text-[#dedacb] text-base font-display">{matchData.suggestedMeetupSpot.name}</h4>
+                  <p className="text-xs text-[#a89f91] font-mono">{matchData.suggestedMeetupSpot.address}</p>
                 </div>
-                <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
                   OSM Verified
                 </span>
               </div>
-              <p className="text-xs text-slate-300 pt-1 border-t border-slate-800/80">
+              <p className="text-xs text-[#dedacb] pt-2 border-t border-[#25332e] font-light">
                 {matchData.suggestedMeetupSpot.why_it_fits}
               </p>
             </div>
           </div>
 
-          {/* Shared Playlist Concept */}
-          <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
+          {/* Shared Playlist */}
+          <div className="editorial-card rounded-3xl p-6 border border-[#2e3e38] shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                <Disc3 className="w-4 h-4 text-purple-400 animate-spin" style={{ animationDuration: "12s" }} /> Shared Taste Playlist
+              <span className="text-xs font-mono font-bold text-crimson-400 uppercase tracking-wider flex items-center gap-2">
+                <Disc3 className="w-4 h-4 text-crimson-500 animate-spin" style={{ animationDuration: "12s" }} /> Shared Taste Playlist
               </span>
-              <span className="text-[10px] text-slate-400">5 Tracks</span>
+              <span className="text-[10px] font-mono text-[#a89f91]">5 Tracks</span>
             </div>
 
             <div>
-              <h4 className="font-bold text-white text-sm">{matchData.sharedPlaylist.title}</h4>
-              <p className="text-xs text-slate-400 mt-0.5">{matchData.sharedPlaylist.description}</p>
+              <h4 className="font-bold text-[#dedacb] text-sm font-display">{matchData.sharedPlaylist.title}</h4>
+              <p className="text-xs text-[#a89f91] mt-0.5 font-light">{matchData.sharedPlaylist.description}</p>
             </div>
 
             <div className="space-y-2 pt-2">
               {matchData.sharedPlaylist.tracks.map((track, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs"
+                  className="flex items-center justify-between p-3 rounded-xl bg-[#141d19] border border-[#2e3e38] text-xs shadow-sm"
                 >
-                  <div className="flex items-center gap-2">
-                    <Music className="w-3.5 h-3.5 text-indigo-400" />
+                  <div className="flex items-center gap-2.5">
+                    <Music className="w-3.5 h-3.5 text-emerald-400" />
                     <div>
-                      <span className="font-bold text-white">{track.artist}</span>
-                      <span className="text-slate-400 text-[11px] ml-1.5">• {track.songOrStyle}</span>
+                      <span className="font-bold text-[#dedacb] font-mono">{track.artist}</span>
+                      <span className="text-[#a89f91] text-[11px] ml-1.5">• {track.songOrStyle}</span>
                     </div>
                   </div>
                   <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold uppercase ${
                       track.source === "shared"
-                        ? "bg-indigo-500/20 text-indigo-300"
-                        : "bg-purple-500/20 text-purple-300"
+                        ? "bg-crimson-950/80 text-crimson-400 border border-crimson-500/40"
+                        : "bg-emerald-950/80 text-emerald-400 border border-emerald-500/40"
                     }`}
                   >
                     {track.source === "shared" ? "Overlap" : "Discovery"}
@@ -257,14 +250,14 @@ export const ConnectModule: React.FC<ConnectModuleProps> = ({ currentProfile }) 
           </div>
 
           {/* Conversation Starters */}
-          <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-3">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-              <MessageSquare className="w-4 h-4" /> 3 High-Resonance Conversation Starters
+          <div className="editorial-card rounded-3xl p-6 border border-[#2e3e38] shadow-xl space-y-3">
+            <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-amber-400" /> 3 High-Resonance Starters
             </span>
             <div className="space-y-2">
               {matchData.conversationStarters.map((starter, idx) => (
-                <div key={idx} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300">
-                  <span className="text-amber-400 font-bold mr-1">#{idx + 1}</span> {starter}
+                <div key={idx} className="p-3.5 rounded-xl bg-[#141d19] border border-[#2e3e38] text-xs text-[#dedacb] shadow-sm font-light">
+                  <span className="text-amber-400 font-bold font-mono mr-1.5">#{idx + 1}</span> {starter}
                 </div>
               ))}
             </div>

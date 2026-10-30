@@ -3,52 +3,70 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
+  --background: #0d1311; /* Deepest Forest Obsidian */
+  --foreground: #f2efe9; /* Warm Alabaster Beige */
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
 }
 
-/* Glassmorphism utility classes */
-.glass-panel {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Editorial Serif & Sans Headlines */
+.font-display {
+  font-family: 'Syne', sans-serif;
 }
 
-.glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.font-editorial-serif {
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
-.glass-panel-hover:hover {
-  background: rgba(26, 36, 56, 0.85);
-  border-color: rgba(99, 102, 241, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.25);
+/* Editorial Glass & Luxury Shadows */
+.editorial-card {
+  background: rgba(18, 26, 23, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(222, 203, 178, 0.12);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.badge-glow {
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+.editorial-card:hover {
+  background: rgba(24, 34, 30, 0.9);
+  border-color: rgba(225, 29, 72, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(225, 29, 72, 0.15);
 }
 
-/* Custom scrollbars */
+/* High-Impact Editorial Typographic Stencil */
+.text-crimson-editorial {
+  color: #e11d48;
+  text-shadow: 0 0 40px rgba(225, 29, 72, 0.3);
+}
+
+.crimson-pill {
+  background: linear-gradient(135deg, #e11d48 0%, #9f1239 100%);
+  box-shadow: 0 8px 24px -6px rgba(225, 29, 72, 0.5);
+}
+
+.forest-pill {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  box-shadow: 0 8px 24px -6px rgba(21, 128, 61, 0.4);
+}
+
+/* Custom smooth dark forest scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #0d1311;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #25332e;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6366f1;
+  background: #e11d48;
 }
