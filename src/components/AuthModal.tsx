@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { StudentProfile, TasteEntity, DomainType } from "@/types";
 import { sanitizeString } from "@/lib/sanitize";
+import { ModernSelect, DropdownOption } from "@/components/ModernSelect";
+import { Country, City } from "country-state-city";
+import { ACADEMIC_MAJORS } from "@/data/majorsData";
+import { TASTE_DIMENSIONS, TasteCategoryDimension } from "@/data/tasteDimensions";
 import {
   X,
   Sparkles,
@@ -19,71 +23,208 @@ import {
   ArrowRight,
   ShieldCheck,
   User,
-  Compass
+  Compass,
+  Lock,
+  Mail,
+  GraduationCap,
+  MapPin,
+  Globe2,
+  Search
 } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   onAuthSuccess: (student: StudentProfile) => void;
   initialMode?: "register" | "login";
+  canClose?: boolean;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
-  initialMode = "register"
+  initialMode = "login",
+  canClose = true
 }) => {
   const [mode, setMode] = useState<"register" | "login">(initialMode);
-  const [step, setStep] = useState<1 | 2>(1); // Step 1: Identity, Step 2: Cultural Taste Coordinates
+  const [step, setStep] = useState<1 | 2>(1); // Step 1: Credentials & Locations, Step 2: Cultural Coordinates
 
-  // Form State
+  // Form Credentials
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
-  const [homeCity, setHomeCity] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [major, setMajor] = useState("");
+
+  // Hometown (Origin) State
+  const [homeCountryCode, setHomeCountryCode] = useState("");
   const [homeCountry, setHomeCountry] = useState("");
-  const [targetCity, setTargetCity] = useState("Berlin");
-  const [targetUniversity, setTargetUniversity] = useState("TU Berlin");
-  const [major, setMajor] = useState("Computer Science");
+  const [homeCity, setHomeCity] = useState("");
 
-  // Taste Calibration State
-  const [tasteEntities, setTasteEntities] = useState<TasteEntity[]>([
-    {
-      id: "ent-seed-1",
-      domain: "artist",
-      qloo_entity_id: "urn:entity:artist:radiohead",
-      name: "Radiohead",
-      source: "user",
-      weight: 0.95,
-      tags: ["artist", "alt-rock"]
-    },
-    {
-      id: "ent-seed-2",
-      domain: "video_game",
-      qloo_entity_id: "urn:entity:video_game:portal_2",
-      name: "Portal 2",
-      source: "user",
-      weight: 0.90,
-      tags: ["video_game", "puzzle"]
-    }
-  ]);
+  // Destination (Campus) State
+  const [targetCountryCode, setTargetCountryCode] = useState("");
+  const [targetCountry, setTargetCountry] = useState("");
+  const [targetCity, setTargetCity] = useState("");
+  const [targetUniversity, setTargetUniversity] = useState("");
 
-  // URL Importer State
+  // Live University Directory State (loaded dynamically per country from global academic database)
+  const [universitiesList, setUniversitiesList] = useState<DropdownOption[]>([]);
+  const [isLoadingUniversities, setIsLoadingUniversities] = useState(false);
+
+  // Taste Entities State (starts empty - user adds or imports their real tastes)
+  const [tasteEntities, setTasteEntities] = useState<TasteEntity[]>([]);
+
+  // Taste Importer & Manual State
   const [profileUrl, setProfileUrl] = useState("");
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const [importNotice, setImportNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
-  // Manual Add State
+  const [selectedDimensionId, setSelectedDimensionId] = useState<string>(TASTE_DIMENSIONS[0].id);
   const [newEntityName, setNewEntityName] = useState("");
-  const [newEntityDomain, setNewEntityDomain] = useState<DomainType>("artist");
   const [isResolving, setIsResolving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // 1. ALL 250+ COUNTRIES IN THE WORLD (INSTANT)
+  const allCountriesOptions: DropdownOption[] = useMemo(() => {
+    return Country.getAllCountries().map((c) => ({
+      label: c.name,
+      value: c.name,
+      subtext: c.isoCode,
+      flag: c.flag
+    }));
+  }, []);
+
+  // ACADEMIC MAJORS & PROGRAMS
+  const academicMajorOptions: DropdownOption[] = useMemo(() => {
+    return ACADEMIC_MAJORS.map((m) => ({
+      label: m.name,
+      value: m.name,
+      subtext: m.category
+    }));
+  }, []);
+
+  // 2. ALL CITIES FOR HOMETOWN COUNTRY
+  const homeCityOptions: DropdownOption[] = useMemo(() => {
+    if (!homeCountryCode) return [];
+    const raw = City.getCitiesOfCountry(homeCountryCode) || [];
+    const seen = new Set<string>();
+    const list: DropdownOption[] = [];
+    for (const c of raw) {
+      if (!seen.has(c.name.toLowerCase())) {
+        seen.add(c.name.toLowerCase());
+        list.push({
+          label: c.name,
+          value: c.name,
+          subtext: `${c.stateCode ? c.stateCode + ", " : ""}${homeCountry}`
+        });
+      }
+    }
+    return list;
+  }, [homeCountryCode, homeCountry]);
+
+  // 3. ALL CITIES FOR TARGET DESTINATION COUNTRY
+  const targetCityOptions: DropdownOption[] = useMemo(() => {
+    if (!targetCountryCode) return [];
+    const raw = City.getCitiesOfCountry(targetCountryCode) || [];
+    const seen = new Set<string>();
+    const list: DropdownOption[] = [];
+    for (const c of raw) {
+      if (!seen.has(c.name.toLowerCase())) {
+        seen.add(c.name.toLowerCase());
+        list.push({
+          label: c.name,
+          value: c.name,
+          subtext: `${c.stateCode ? c.stateCode + ", " : ""}${targetCountry}`
+        });
+      }
+    }
+    return list;
+  }, [targetCountryCode, targetCountry]);
+
+  // 4. FETCH ALL UNIVERSITIES FOR TARGET COUNTRY FROM GLOBAL DB
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadUniversities() {
+      if (!targetCountry) return;
+      setIsLoadingUniversities(true);
+      try {
+        const res = await fetch(`/api/geo?type=universities&countryName=${encodeURIComponent(targetCountry)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (!isCancelled && json.universities) {
+            setUniversitiesList(
+              json.universities.map((u: any) => ({
+                label: u.label,
+                value: u.value,
+                subtext: u.stateProvince ? `${u.stateProvince}, ${targetCountry}` : targetCountry
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load universities:", err);
+      } finally {
+        if (!isCancelled) setIsLoadingUniversities(false);
+      }
+    }
+    loadUniversities();
+    return () => {
+      isCancelled = true;
+    };
+  }, [targetCountry]);
+
+  // Cascading Handlers
+  const handleHomeCountrySelect = (name: string, opt?: DropdownOption) => {
+    setHomeCountry(name);
+    const found = Country.getAllCountries().find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const code = found ? found.isoCode : opt?.subtext || "";
+    setHomeCountryCode(code);
+    setHomeCity("");
+  };
+
+  const handleTargetCountrySelect = (name: string, opt?: DropdownOption) => {
+    setTargetCountry(name);
+    const found = Country.getAllCountries().find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const code = found ? found.isoCode : opt?.subtext || "";
+    setTargetCountryCode(code);
+    setTargetCity("");
+    setTargetUniversity("");
+  };
+
   if (!isOpen) return null;
 
-  // URL Importer (Supports Spotify, Steam, Letterboxd, IMDb, Google Maps, Goodreads)
+  // Step 1 Validation
+  const handleValidateStep1 = () => {
+    setAuthError(null);
+    if (!displayName.trim()) {
+      setAuthError("Please provide your full name.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setAuthError("Please enter a valid email address.");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setAuthError("Password must be at least 6 characters long.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setAuthError("Passwords do not match.");
+      return;
+    }
+    if (!homeCountry.trim() || !homeCity.trim()) {
+      setAuthError("Please select your hometown country and city.");
+      return;
+    }
+    if (!targetCountry.trim() || !targetCity.trim() || !targetUniversity.trim()) {
+      setAuthError("Please select your destination country, city, and university / college.");
+      return;
+    }
+    setStep(2);
+  };
+
+  // URL Importer
   const handleImportUrl = async () => {
     if (!profileUrl.trim()) return;
     setIsImportingUrl(true);
@@ -99,63 +240,75 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (!res.ok) throw new Error(`Status ${res.status}`);
 
       const data = await res.json();
-      if (data.entities && data.entities.length > 0) {
-        setTasteEntities((prev) => [...prev, ...data.entities]);
+      if (data.entities && Array.isArray(data.entities) && data.entities.length > 0) {
+        setTasteEntities((prev) => {
+          const existingIds = new Set(prev.map((e) => e.name.toLowerCase()));
+          const novel = data.entities.filter((e: TasteEntity) => !existingIds.has(e.name.toLowerCase()));
+          return [...prev, ...novel];
+        });
         setImportNotice({
           type: "success",
-          message: `Successfully resolved ${data.extractedCount} taste anchors from ${data.source.toUpperCase()}!`
+          message: `Successfully imported ${data.entities.length} taste items from ${data.detectedPlatform || "profile"}!`
         });
         setProfileUrl("");
       } else {
         setImportNotice({
           type: "error",
-          message: "Could not resolve entities from this link. Try another link or manual search."
+          message: data.message || "No public taste items found at that URL. Add items manually below."
         });
       }
     } catch (err: any) {
       setImportNotice({
         type: "error",
-        message: err.message || "Failed to extract taste from URL."
+        message: err.message || "Failed to contact importer service"
       });
     } finally {
       setIsImportingUrl(false);
     }
   };
 
-  // Manual Entity Resolver via Qloo
   const handleAddManualEntity = async () => {
-    const clean = sanitizeString(newEntityName, 80);
-    if (!clean) return;
+    if (!newEntityName.trim()) return;
     setIsResolving(true);
+    const clean = sanitizeString(newEntityName.trim(), 80);
+    const currentDim = TASTE_DIMENSIONS.find((d) => d.id === selectedDimensionId) || TASTE_DIMENSIONS[0];
 
     try {
-      const res = await fetch(`/api/qloo/search?query=${encodeURIComponent(clean)}&domain=${newEntityDomain}`);
-      const data = await res.json();
-      const resolved = data.results && data.results.length > 0 ? data.results[0] : null;
+      const res = await fetch(
+        `/api/qloo/search?query=${encodeURIComponent(clean)}&domain=${currentDim.domain}`
+      );
+      if (res.ok) {
+        const json = await res.json();
+        const results = json.results || [];
+        if (results.length > 0) {
+          const top = results[0];
+          setTasteEntities((prev) => [
+            ...prev,
+            {
+              id: `entity-${Date.now()}`,
+              domain: currentDim.domain,
+              qloo_entity_id: top.qloo_entity_id || top.id || `urn:entity:${currentDim.domain}:${encodeURIComponent(clean.toLowerCase())}`,
+              name: top.name || clean,
+              source: "user",
+              weight: 0.95,
+              tags: Array.from(new Set([...(top.tags || []), currentDim.tagType, currentDim.categoryLabel.toLowerCase()]))
+            }
+          ]);
+          setNewEntityName("");
+          return;
+        }
+      }
 
-      const newEnt: TasteEntity = resolved || {
-        id: `entity-${Date.now()}`,
-        domain: newEntityDomain,
-        qloo_entity_id: `urn:entity:${newEntityDomain}:${encodeURIComponent(clean.toLowerCase())}`,
-        name: clean,
-        source: "user",
-        weight: 0.9,
-        tags: [newEntityDomain]
-      };
-
-      setTasteEntities((prev) => [...prev, newEnt]);
-      setNewEntityName("");
-    } catch {
       setTasteEntities((prev) => [
         ...prev,
         {
           id: `entity-${Date.now()}`,
-          domain: newEntityDomain,
-          qloo_entity_id: `urn:entity:${newEntityDomain}:${encodeURIComponent(clean.toLowerCase())}`,
+          domain: currentDim.domain,
+          qloo_entity_id: `urn:entity:${currentDim.domain}:${encodeURIComponent(clean.toLowerCase())}`,
           name: clean,
           source: "user",
           weight: 0.9,
-          tags: [newEntityDomain]
+          tags: [currentDim.tagType, currentDim.categoryLabel.toLowerCase()]
         }
       ]);
       setNewEntityName("");
@@ -164,17 +317,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  // Registration Execution
   const handleCompleteRegister = async () => {
     setIsSubmitting(true);
     setAuthError(null);
 
     const studentPayload: StudentProfile = {
       id: `student-${Date.now()}`,
-      display_name: displayName.trim() || "Maya Chen",
+      email: email.trim().toLowerCase(),
+      display_name: displayName.trim(),
       home_city: homeCity.trim() || "Pune",
       home_country: homeCountry.trim() || "India",
+      target_country: targetCountry.trim() || "Germany",
       target_city: targetCity.trim() || "Berlin",
-      target_university: targetUniversity.trim() || "TU Berlin",
+      target_university: targetUniversity.trim() || "Technical University of Berlin (TU Berlin)",
       target_lat: 52.5119,
       target_lng: 13.3265,
       major: major.trim() || "Computer Science",
@@ -189,13 +345,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "register", profile: studentPayload })
+        body: JSON.stringify({
+          action: "register",
+          email: email.trim().toLowerCase(),
+          password,
+          profile: studentPayload
+        })
       });
 
       const data = await res.json();
-      if (data.student) {
+      if (res.ok && data.student) {
         onAuthSuccess(data.student);
-        onClose();
+        if (onClose) onClose();
       } else {
         throw new Error(data.error || "Failed to register profile");
       }
@@ -206,23 +367,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleLoginSubmit = async () => {
-    setIsSubmitting(true);
+  // Sign In Execution
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setAuthError(null);
+
+    if (!email.trim() || !password) {
+      setAuthError("Email and password are required to sign in.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", email: email.trim(), displayName: displayName.trim() })
+        body: JSON.stringify({
+          action: "login",
+          email: email.trim().toLowerCase(),
+          password
+        })
       });
 
       const data = await res.json();
-      if (data.student) {
+      if (res.ok && data.student) {
         onAuthSuccess(data.student);
-        onClose();
+        if (onClose) onClose();
       } else {
-        throw new Error(data.error || "Login failed");
+        throw new Error(data.error || "Invalid credentials. Please verify email and password.");
       }
     } catch (err: any) {
       setAuthError(err.message || "Login failed");
@@ -250,134 +423,167 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fadeIn">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-[#0d1311] border border-[#2e3e38] shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden">
-        {/* Ambient Top Glow */}
-        <div className="absolute top-0 right-1/4 w-72 h-72 bg-crimson-600/15 rounded-full blur-[100px] pointer-events-none" />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#070b09] text-[#f2efe9] animate-fadeIn selection:bg-crimson-600 selection:text-white">
+      {/* Ambient Atmospheric Lighting */}
+      <div className="fixed top-0 right-1/4 w-[700px] h-[700px] bg-crimson-600/12 rounded-full blur-[200px] pointer-events-none" />
+      <div className="fixed bottom-0 left-1/4 w-[600px] h-[600px] bg-emerald-600/10 rounded-full blur-[180px] pointer-events-none" />
 
-        {/* Modal Header */}
-        <div className="p-6 sm:p-8 border-b border-[#25332e] flex items-center justify-between">
+      {/* Top Fixed / Sticky Navigation Bar */}
+      <header className="sticky top-0 z-40 bg-[#070b09]/90 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-4xl mx-auto px-6 h-18 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-display font-black text-xl tracking-tighter text-[#dedacb] uppercase">
+            <span className="font-display font-black text-2xl tracking-tighter text-[#dedacb] uppercase">
               HOME<span className="text-[#e11d48]">BASE</span>
             </span>
-            <span className="text-[10px] font-mono tracking-widest text-[#a89f91] uppercase px-2.5 py-1 rounded-full border border-[#2e3e38] bg-[#141d19]">
-              STUDENT AUTH
-            </span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono tracking-widest text-[#a89f91] uppercase">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>GLOBAL STUDENT ACCESS</span>
+            </div>
           </div>
 
+          {canClose && onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider text-[#a89f91] hover:text-white hover:bg-white/10 transition border border-white/10 flex items-center gap-2"
+            >
+              <span>Back to Campus</span>
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Main Dedicated Content Container */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
+        <div className="rounded-[32px] bg-[#0c120f] border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-visible">
+          {/* Segmented Mode Selector */}
+          <div className="p-2 border-b border-white/10 bg-[#121915]/60 flex gap-2 rounded-t-[32px]">
           <button
-            onClick={onClose}
-            className="p-2 rounded-full text-[#a89f91] hover:text-[#dedacb] hover:bg-[#1a2621] transition"
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setAuthError(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-bold ${
+              mode === "login"
+                ? "bg-[#1f2d26] text-white shadow-md border border-white/15"
+                : "text-[#a89f91] hover:text-[#dedacb]"
+            }`}
           >
-            <X className="w-5 h-5" />
+            <User className="w-3.5 h-3.5" /> Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("register");
+              setAuthError(null);
+              setStep(1);
+            }}
+            className={`flex-1 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-bold ${
+              mode === "register"
+                ? "crimson-pill text-white shadow-lg"
+                : "text-[#a89f91] hover:text-[#dedacb]"
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" /> Register Profile
           </button>
         </div>
 
-        {/* Mode Switcher */}
-        <div className="flex border-b border-[#25332e] text-xs font-mono uppercase tracking-wider">
-          <button
-            onClick={() => setMode("register")}
-            className={`flex-1 py-3 text-center transition font-bold ${
-              mode === "register" ? "bg-[#141d19] text-[#dedacb] border-b-2 border-crimson-500" : "text-[#a89f91] hover:text-[#dedacb]"
-            }`}
-          >
-            Create Student Profile
-          </button>
-          <button
-            onClick={() => setMode("login")}
-            className={`flex-1 py-3 text-center transition font-bold ${
-              mode === "login" ? "bg-[#141d19] text-[#dedacb] border-b-2 border-crimson-500" : "text-[#a89f91] hover:text-[#dedacb]"
-            }`}
-          >
-            Student Sign In
-          </button>
-        </div>
-
-        {/* Error Notice */}
+        {/* Error Notification */}
         {authError && (
-          <div className="m-6 p-3 rounded-xl bg-crimson-950/80 border border-crimson-500/50 text-crimson-300 text-xs font-mono flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-crimson-950/80 border border-crimson-500/50 text-crimson-200 text-xs font-mono flex items-center gap-2.5 shrink-0">
+            <AlertCircle className="w-4 h-4 text-crimson-400 shrink-0" />
             <span>{authError}</span>
           </div>
         )}
 
-        {/* Modal Body */}
-        <div className="p-6 sm:p-8 max-h-[75vh] overflow-y-auto space-y-6">
+        {/* Dedicated Content Body */}
+        <div className="p-6 sm:p-8 space-y-6">
           {mode === "login" ? (
-            /* --- LOGIN FORM --- */
-            <div className="space-y-5">
-              <div className="space-y-1">
-                <h3 className="font-editorial-serif font-black text-2xl text-[#dedacb]">
-                  Welcome Back to HomeBase
+            /* ================= LOGIN FORM ================= */
+            <form onSubmit={handleLoginSubmit} className="space-y-6 max-w-lg mx-auto py-4">
+              <div className="text-center space-y-2">
+                <h3 className="font-editorial-serif font-black text-3xl text-[#f2efe9]">
+                  Welcome Back
                 </h3>
                 <p className="text-xs text-[#a89f91] font-light">
-                  Sign in with your student identity to restore your Qloo taste graph, settlement blueprint, and peer matches.
+                  Sign in with your verified credentials to access your personalized campus map, taste affinity bridges, and analogous learning modules.
                 </p>
               </div>
 
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
-                    Student Name or Email
+                <div className="p-4 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
+                  <label className="text-[10px] font-mono uppercase text-[#a89f91] flex items-center gap-1.5 mb-1">
+                    <Mail className="w-3 h-3 text-crimson-400" /> Student Email Address *
                   </label>
                   <input
-                    type="text"
+                    type="email"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. Maya Chen or maya@tu-berlin.de"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
+                    placeholder="e.g. maya@tu-berlin.de"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
                   />
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
-                    Password / Student PIN
+                <div className="p-4 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
+                  <label className="text-[10px] font-mono uppercase text-[#a89f91] flex items-center gap-1.5 mb-1">
+                    <Lock className="w-3 h-3 text-crimson-400" /> Password *
                   </label>
                   <input
                     type="password"
-                    defaultValue="demo1234"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter account password"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 flex flex-col gap-3">
+              <div className="space-y-3 pt-2">
                 <button
-                  onClick={handleLoginSubmit}
+                  type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 rounded-full crimson-pill hover:brightness-110 text-white font-mono text-xs uppercase tracking-widest font-bold transition flex items-center justify-center gap-2 shadow-lg"
+                  className="w-full py-4 rounded-full crimson-pill hover:brightness-110 text-white font-mono text-xs uppercase tracking-widest font-black transition flex items-center justify-center gap-2 shadow-[0_15px_35px_rgba(225,29,72,0.4)] disabled:opacity-50 cursor-pointer"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
-                  Sign In to Dashboard
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  Verify & Enter Dashboard
                 </button>
 
-                <button
-                  onClick={() => {
-                    setEmail("maya@tu-berlin.de");
-                    setDisplayName("Maya Chen");
-                    handleLoginSubmit();
-                  }}
-                  className="w-full py-2.5 rounded-full bg-[#18231e] hover:bg-[#202f28] border border-[#2e3e38] text-[#dedacb] font-mono text-xs transition"
-                >
-                  1-Click Demo Login (Maya Chen • Berlin)
-                </button>
+                <div className="text-center pt-2">
+                  <span className="text-xs text-[#a89f91]">Don't have an account? </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("register");
+                      setAuthError(null);
+                    }}
+                    className="text-xs font-bold text-crimson-400 hover:underline"
+                  >
+                    Register here
+                  </button>
+                </div>
               </div>
-            </div>
+            </form>
           ) : step === 1 ? (
-            /* --- REGISTRATION STEP 1: IDENTITY & CAMPUS --- */
+            /* ================= REGISTRATION STEP 1: CREDENTIALS & WORLD GEOGRAPHY ================= */
             <div className="space-y-6">
               <div className="space-y-1">
                 <div className="text-[10px] font-mono text-crimson-400 uppercase tracking-widest font-bold">
-                  Step 01 / 02 • University Coordinates
+                  Step 01 / 02 • Global Identity & Academic Path
                 </div>
-                <h3 className="font-editorial-serif font-black text-2xl text-[#dedacb]">
+                <h3 className="font-editorial-serif font-black text-2xl sm:text-3xl text-[#f2efe9]">
                   Where is Your Academic Journey Heading?
                 </h3>
+                <p className="text-xs text-[#a89f91] font-light">
+                  Search & select from all 250+ countries, every global city, and world university directories.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
+              {/* 1. Account Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="p-3.5 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
                   <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
                     Your Full Name *
                   </label>
@@ -386,68 +592,163 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="e.g. Maya Chen"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
                   />
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
-                    Academic Major
+                <div className="p-3.5 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
+                  <label className="text-[10px] font-mono uppercase text-[#a89f91] flex items-center gap-1.5 mb-1">
+                    <Mail className="w-3 h-3 text-crimson-400" /> Student Email Address *
                   </label>
                   <input
-                    type="text"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. maya@tu-berlin.de"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
+                  <label className="text-[10px] font-mono uppercase text-[#a89f91] flex items-center gap-1.5 mb-1">
+                    <Lock className="w-3 h-3 text-crimson-400" /> Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#121916] border border-white/10 focus-within:border-crimson-500 transition">
+                  <label className="text-[10px] font-mono uppercase text-[#a89f91] flex items-center gap-1.5 mb-1">
+                    <Lock className="w-3 h-3 text-crimson-400" /> Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className="w-full bg-transparent text-[#f2efe9] text-sm font-bold focus:outline-none placeholder-[#4a5f56]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <ModernSelect
+                    label="Academic Major / Program of Study"
+                    placeholder="Select or search your major..."
+                    searchPlaceholder="Search 50+ majors (e.g. Computer Science, Architecture, Neuroscience)..."
+                    options={academicMajorOptions}
                     value={major}
-                    onChange={(e) => setMajor(e.target.value)}
-                    placeholder="e.g. Computer Science"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
-                  />
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
-                    Hometown Origin
-                  </label>
-                  <input
-                    type="text"
-                    value={homeCity}
-                    onChange={(e) => setHomeCity(e.target.value)}
-                    placeholder="e.g. Pune, India"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
-                  />
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#141d19] border border-crimson-500/60 focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-crimson-400 font-bold block mb-1">
-                    Destination City *
-                  </label>
-                  <input
-                    type="text"
-                    value={targetCity}
-                    onChange={(e) => setTargetCity(e.target.value)}
-                    placeholder="e.g. Berlin or London"
-                    className="w-full bg-transparent text-crimson-400 text-sm font-black focus:outline-none placeholder-crimson-900/40"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#141d19] border border-[#2e3e38] focus-within:border-crimson-500">
-                  <label className="text-[10px] font-mono uppercase text-[#a89f91] block mb-1">
-                    Destination University
-                  </label>
-                  <input
-                    type="text"
-                    value={targetUniversity}
-                    onChange={(e) => setTargetUniversity(e.target.value)}
-                    placeholder="e.g. Technical University of Berlin (TU Berlin)"
-                    className="w-full bg-transparent text-[#dedacb] text-sm font-bold focus:outline-none placeholder-[#3d4f47]"
+                    onChange={(val) => setMajor(val)}
+                    allowCustomInput={true}
+                    accent="default"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              {/* 2. Hometown (Origin) Directory */}
+              <div className="space-y-3 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-2 text-xs font-mono tracking-wider text-[#dedacb] uppercase font-bold">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  <span>01. Hometown Origin Coordinates</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <ModernSelect
+                    label="Hometown Country"
+                    placeholder="Select country of origin..."
+                    searchPlaceholder="Search 250+ countries..."
+                    options={allCountriesOptions}
+                    value={homeCountry}
+                    onChange={handleHomeCountrySelect}
+                    required
+                    accent="emerald"
+                  />
+
+                  <ModernSelect
+                    label="Hometown City"
+                    placeholder={homeCountry ? `Select or type city in ${homeCountry}...` : "Select country first"}
+                    searchPlaceholder={`Search all cities in ${homeCountry || "country"}...`}
+                    options={homeCityOptions}
+                    value={homeCity}
+                    onChange={(val) => setHomeCity(val)}
+                    disabled={!homeCountry}
+                    required
+                    allowCustomInput={true}
+                    accent="emerald"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Destination (Campus) Directory */}
+              <div className="space-y-3 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-2 text-xs font-mono tracking-wider text-crimson-400 uppercase font-bold">
+                  <Globe2 className="w-4 h-4 text-crimson-400" />
+                  <span>02. Destination Campus Coordinates</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <ModernSelect
+                    label="Destination Country"
+                    placeholder="Select destination country..."
+                    searchPlaceholder="Search 250+ countries..."
+                    options={allCountriesOptions}
+                    value={targetCountry}
+                    onChange={handleTargetCountrySelect}
+                    required
+                    accent="crimson"
+                  />
+
+                  <ModernSelect
+                    label="Destination City"
+                    placeholder={targetCountry ? `Select city in ${targetCountry}...` : "Select country first"}
+                    searchPlaceholder={`Search all cities in ${targetCountry || "country"}...`}
+                    options={targetCityOptions}
+                    value={targetCity}
+                    onChange={(val) => setTargetCity(val)}
+                    disabled={!targetCountry}
+                    required
+                    allowCustomInput={true}
+                    accent="crimson"
+                  />
+
+                  <div className="sm:col-span-2">
+                    <ModernSelect
+                      label="Destination University / College"
+                      placeholder={
+                        targetCountry
+                          ? `Select or search university / college in ${targetCountry}...`
+                          : "Select destination country first"
+                      }
+                      searchPlaceholder="Search university name or type custom college..."
+                      options={universitiesList}
+                      value={targetUniversity}
+                      onChange={(val) => setTargetUniversity(val)}
+                      disabled={!targetCountry}
+                      required
+                      allowCustomInput={true}
+                      accent="crimson"
+                      isLoading={isLoadingUniversities}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
                 <button
-                  onClick={() => setStep(2)}
-                  disabled={!targetCity.trim()}
-                  className="px-8 py-3.5 rounded-full crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-widest font-bold transition flex items-center gap-2 shadow-lg"
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className="text-xs font-mono text-[#a89f91] hover:text-[#dedacb] transition"
+                >
+                  Already have an account? Sign in
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleValidateStep1}
+                  className="px-8 py-3.5 rounded-full crimson-pill hover:brightness-110 text-white font-mono text-xs uppercase tracking-widest font-black transition flex items-center gap-2 shadow-[0_15px_35px_rgba(225,29,72,0.4)] cursor-pointer"
                 >
                   <span>Continue to Cultural Taste</span>
                   <ArrowRight className="w-4 h-4" />
@@ -455,22 +756,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
           ) : (
-            /* --- REGISTRATION STEP 2: TASTE PROFILE CALIBRATION --- */
+            /* ================= REGISTRATION STEP 2: TASTE PROFILE INTAKE ================= */
             <div className="space-y-6">
               <div className="space-y-1">
                 <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-bold">
                   Step 02 / 02 • Cultural Frequency Calibration
                 </div>
-                <h3 className="font-editorial-serif font-black text-2xl text-[#dedacb]">
-                  Share Your Tastes (Spotify, Steam, Letterboxd, Google Maps)
+                <h3 className="font-editorial-serif font-black text-2xl sm:text-3xl text-[#f2efe9]">
+                  Calibrate Your Cultural Coordinates
                 </h3>
                 <p className="text-xs text-[#a89f91] font-light">
                   Paste links to your music, movie, gaming, dining, or reading profiles, or add items manually.
                 </p>
               </div>
 
-              {/* URL Import Bar */}
-              <div className="p-3.5 rounded-2xl bg-[#141d19] border border-[#e11d48]/40 space-y-2">
+              {/* Instant URL Importer */}
+              <div className="p-4 rounded-3xl bg-[#141d19] border border-crimson-500/30 space-y-2.5">
                 <div className="text-[10px] font-mono uppercase text-crimson-400 font-bold flex items-center gap-1.5">
                   <Link2 className="w-3.5 h-3.5" /> Instant Profile Link Importer
                 </div>
@@ -479,24 +780,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="url"
                     value={profileUrl}
                     onChange={(e) => setProfileUrl(e.target.value)}
-                    placeholder="Paste Spotify playlist, Steam game, Letterboxd, Google Maps, or Goodreads URL..."
-                    onKeyDown={(e) => e.key === "Enter" && handleImportUrl()}
-                    className="w-full flex-1 px-4 py-2.5 rounded-xl bg-[#1c2822] border border-[#2e3e38] text-xs font-mono text-[#dedacb] placeholder-[#a89f91]/40 focus:outline-none focus:border-crimson-500"
+                    placeholder="Spotify track/artist, Steam game, Letterboxd, IMDb, or Goodreads link..."
+                    className="w-full flex-1 px-4 py-3 rounded-2xl bg-[#0c120f] border border-white/10 text-xs font-mono text-[#dedacb] placeholder-[#4a5f56] focus:outline-none focus:border-crimson-500"
                   />
                   <button
+                    type="button"
                     onClick={handleImportUrl}
                     disabled={isImportingUrl || !profileUrl.trim()}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-wider font-bold transition flex items-center justify-center gap-1.5"
+                    className="w-full sm:w-auto px-6 py-3 rounded-2xl crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-wider font-bold transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                   >
-                    {isImportingUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                    Extract
+                    {isImportingUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    Import Taste
                   </button>
+                </div>
+
+                <div className="text-[11px] font-mono text-[#a89f91]/70 flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
+                  <span className="text-[#dedacb] font-bold">Supported links:</span>
+                  <span>Spotify Song/Artist (<code className="text-emerald-400">/track/...</code>, <code className="text-emerald-400">/artist/...</code>)</span>
+                  <span>• IMDb / Letterboxd Films</span>
+                  <span>• Steam Games</span>
+                  <span>• Goodreads Books</span>
                 </div>
               </div>
 
               {importNotice && (
                 <div
-                  className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 ${
+                  className={`p-3.5 rounded-2xl text-xs font-mono flex items-center gap-2 ${
                     importNotice.type === "success"
                       ? "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
                       : "bg-crimson-950/70 border border-crimson-500/40 text-crimson-300"
@@ -507,40 +816,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Manual Add Item */}
-              <div className="p-3.5 rounded-2xl bg-[#141d19] border border-[#2e3e38] flex flex-col sm:flex-row items-center gap-2">
-                <select
-                  value={newEntityDomain}
-                  onChange={(e) => setNewEntityDomain(e.target.value as DomainType)}
-                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-[#1c2822] border border-[#2e3e38] text-xs font-mono uppercase text-[#dedacb] focus:outline-none focus:border-crimson-500 cursor-pointer"
-                >
-                  <option value="artist">Music / Artist</option>
-                  <option value="video_game">Video Game</option>
-                  <option value="movie">Movie / Anime</option>
-                  <option value="place">Cafe / Dining</option>
-                  <option value="book">Book / Literature</option>
-                </select>
+              {/* Comprehensive Cultural Dimension Selector & Input */}
+              {(() => {
+                const activeDim = TASTE_DIMENSIONS.find((d) => d.id === selectedDimensionId) || TASTE_DIMENSIONS[0];
+                const categories = Array.from(new Set(TASTE_DIMENSIONS.map((d) => d.categoryLabel)));
 
-                <input
-                  type="text"
-                  value={newEntityName}
-                  onChange={(e) => setNewEntityName(e.target.value)}
-                  placeholder="Or search favorite artist, game, or cafe..."
-                  onKeyDown={(e) => e.key === "Enter" && handleAddManualEntity()}
-                  className="w-full flex-1 px-4 py-2 rounded-xl bg-[#1c2822] border border-[#2e3e38] text-xs font-mono text-[#dedacb] placeholder-[#a89f91]/40 focus:outline-none focus:border-crimson-500"
-                />
+                return (
+                  <div className="space-y-3 p-4 rounded-3xl bg-[#141d19] border border-white/10 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#a89f91] font-bold">
+                        Target Cultural Dimension
+                      </span>
+                      <span className="text-[10px] font-mono text-crimson-400 font-bold uppercase">
+                        {activeDim.categoryLabel} • {activeDim.dimensionLabel}
+                      </span>
+                    </div>
 
-                <button
-                  onClick={handleAddManualEntity}
-                  disabled={isResolving || !newEntityName.trim()}
-                  className="w-full sm:w-auto px-5 py-2 rounded-xl forest-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-wider font-bold transition flex items-center justify-center gap-1.5"
-                >
-                  {isResolving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                  Add
-                </button>
-              </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-2.5">
+                      <select
+                        value={selectedDimensionId}
+                        onChange={(e) => {
+                          setSelectedDimensionId(e.target.value);
+                          setNewEntityName("");
+                        }}
+                        className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-[#0c120f] border border-white/15 text-xs font-mono text-[#dedacb] focus:outline-none focus:border-crimson-500 cursor-pointer font-bold shadow-inner"
+                      >
+                        {categories.map((cat) => (
+                          <optgroup key={cat} label={`── ${cat.toUpperCase()} ──`} className="bg-[#121915] text-[#dedacb] font-bold">
+                            {TASTE_DIMENSIONS.filter((d) => d.categoryLabel === cat).map((dim) => (
+                              <option key={dim.id} value={dim.id} className="bg-[#0c120f] text-[#f2efe9]">
+                                {dim.dimensionLabel}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
 
-              {/* Cultural Coordinates Badges */}
+                      <input
+                        type="text"
+                        value={newEntityName}
+                        onChange={(e) => setNewEntityName(e.target.value)}
+                        placeholder={activeDim.placeholder}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddManualEntity()}
+                        className="w-full flex-1 px-4 py-3 rounded-2xl bg-[#0c120f] border border-white/15 text-xs font-mono text-[#dedacb] placeholder-[#576b62] focus:outline-none focus:border-crimson-500 shadow-inner"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleAddManualEntity}
+                        disabled={isResolving || !newEntityName.trim()}
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-wider font-bold transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-md"
+                      >
+                        {isResolving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        Add Anchor
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Badges List */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono text-[#a89f91]">
                   <span>Active Taste Anchors ({tasteEntities.length})</span>
@@ -551,43 +886,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
-                  {tasteEntities.map((ent) => (
-                    <div
-                      key={ent.id}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141d19] border border-[#2e3e38] text-xs text-[#dedacb]"
-                    >
-                      {getDomainIcon(ent.domain)}
-                      <span className="font-semibold">{ent.name}</span>
-                      <span className="text-[9px] font-mono uppercase text-crimson-400 px-1.5 py-0.2 rounded bg-crimson-950/60 border border-crimson-500/20">
-                        {ent.domain}
-                      </span>
-                      <button
-                        onClick={() => setTasteEntities((prev) => prev.filter((e) => e.id !== ent.id))}
-                        className="text-[#a89f91] hover:text-crimson-400 transition"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                  {tasteEntities.length === 0 ? (
+                    <div className="w-full py-4 px-4 rounded-2xl bg-[#0e1512] border border-dashed border-white/10 text-center">
+                      <p className="text-xs font-mono text-[#a89f91]/60">
+                        No taste anchors added yet. Search or paste a profile link above to calibrate your cultural frequency.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    tasteEntities.map((ent) => (
+                      <div
+                        key={ent.id}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141d19] border border-white/10 text-xs text-[#dedacb]"
+                      >
+                        {getDomainIcon(ent.domain)}
+                        <span className="font-semibold">{ent.name}</span>
+                        <span className="text-[9px] font-mono uppercase text-crimson-400 px-1.5 py-0.2 rounded bg-crimson-950/60 border border-crimson-500/20">
+                          {ent.domain}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setTasteEntities((prev) => prev.filter((e) => e.id !== ent.id))}
+                          className="text-[#a89f91] hover:text-crimson-400 transition"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Navigation CTAs */}
-              <div className="pt-4 flex items-center justify-between border-t border-[#25332e]">
+              {/* Action Buttons */}
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
                 <button
+                  type="button"
                   onClick={() => setStep(1)}
                   className="text-xs font-mono text-[#a89f91] hover:text-[#dedacb] transition"
                 >
-                  ← Back to Coordinates
+                  ← Back to Credentials
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleCompleteRegister}
                   disabled={isSubmitting || tasteEntities.length === 0}
-                  className="px-8 py-3.5 rounded-full crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-widest font-bold transition flex items-center gap-2 shadow-xl"
+                  className="px-8 py-3.5 rounded-full crimson-pill hover:brightness-110 disabled:opacity-40 text-white font-mono text-xs uppercase tracking-widest font-black transition flex items-center gap-2 shadow-[0_20px_45px_rgba(225,29,72,0.45)] cursor-pointer"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Compass className="w-4 h-4" />}
-                  <span>Launch My HomeBase</span>
+                  <span>Register & Launch HomeBase</span>
                 </button>
               </div>
             </div>
@@ -595,5 +941,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
       </div>
     </div>
+  </div>
   );
 };

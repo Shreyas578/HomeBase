@@ -24,9 +24,11 @@ export interface TasteEntity {
 
 export interface StudentProfile {
   id: string;
+  email?: string;
   display_name: string;
   home_city: string;
   home_country: string;
+  target_country?: string;
   target_city: string;
   target_university: string;
   target_lat: number;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchEntity } from "@/lib/qloo";
+import { qlooSearchEntity } from "@/lib/qloo";
 import { TasteEntity, DomainType } from "@/types";
 import { sanitizeString } from "@/lib/sanitize";
 
@@ -33,10 +33,22 @@ export async function POST(req: NextRequest) {
     let detectedSource: ImportResult["source"] = "generic";
     let defaultDomain: DomainType = "artist";
 
-    // 1. SPOTIFY (Music / Artist / Playlist)
+    // 1. SPOTIFY (Music / Artist / Track / Playlist)
     if (host.includes("spotify.com")) {
       detectedSource = "spotify";
       defaultDomain = "artist";
+
+      // If user pasted a profile URL like /user/xyz
+      if (pathname.includes("/user/")) {
+        return NextResponse.json({
+          source: "spotify",
+          domain: "artist",
+          extractedCount: 0,
+          entities: [],
+          message: "Spotify user profiles are private without OAuth login. Please paste a link to a favorite Song (open.spotify.com/track/...) or Artist (open.spotify.com/artist/...) instead, or add directly using the menu below."
+        });
+      }
+
       try {
         const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(urlObj.toString())}`;
         const spotifyRes = await fetch(oembedUrl, {
@@ -216,7 +228,7 @@ export async function POST(req: NextRequest) {
       if (!item.name || item.name.length < 2) continue;
 
       try {
-        const qlooResults = await searchEntity(item.name, item.domain);
+        const qlooResults = await qlooSearchEntity(item.name, item.domain);
         if (qlooResults && qlooResults.length > 0) {
           resolvedEntities.push(qlooResults[0]);
         } else {

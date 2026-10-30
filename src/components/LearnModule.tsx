@@ -10,7 +10,8 @@ import {
   XCircle,
   HelpCircle,
   Users2,
-  Lightbulb
+  Lightbulb,
+  Loader2
 } from "lucide-react";
 
 interface LearnModuleProps {

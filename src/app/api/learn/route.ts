@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateChatCompletion } from "@/lib/llm";
+import { llmReason } from "@/lib/llm";
 import { LearnExplanation, StudentProfile } from "@/types";
 import { sanitizeString } from "@/lib/sanitize";
 
@@ -53,15 +53,13 @@ Generate a rigorous pedagogical explanation in strict JSON format matching this 
 
 Output ONLY valid JSON. No markdown ticks, no preamble.`;
 
-    const llmResponse = await generateChatCompletion([
-      { role: "system", content: "You output strictly valid JSON matching the user schema." },
-      { role: "user", content: prompt }
-    ], { temperature: 0.2 });
-
     let parsed: LearnExplanation;
     try {
-      const cleanJson = llmResponse.replace(/```json/g, "").replace(/```/g, "").trim();
-      parsed = JSON.parse(cleanJson);
+      parsed = await llmReason<LearnExplanation>({
+        prompt,
+        systemMessage: "You output strictly valid JSON matching the user schema.",
+        temperature: 0.2
+      });
     } catch {
       // Deterministic fallback
       parsed = {

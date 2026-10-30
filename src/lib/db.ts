@@ -26,6 +26,15 @@ export function getDbPool(): mysql.Pool | null {
   return pool;
 }
 
+export async function query<T = any>(sql: string, params: any[] = []): Promise<T> {
+  const db = getDbPool();
+  if (!db) {
+    throw new Error("DATABASE_URL not configured");
+  }
+  const [rows] = await db.query(sql, params);
+  return rows as T;
+}
+
 /**
  * Initializes MySQL schema (tables for profiles, taste entities, matches, plans, and API cache)
  * Compatible with Aiven MySQL Free Tier.
@@ -37,10 +46,12 @@ export async function initDbSchema(): Promise<{ success: boolean; message: strin
   }
 
   try {
-    // 1. Profiles Table
+    // 1. Profiles Table with email & password_hash
     await db.query(`
       CREATE TABLE IF NOT EXISTS profiles (
         id VARCHAR(64) PRIMARY KEY,
+        email VARCHAR(191) UNIQUE,
+        password_hash VARCHAR(255),
         display_name VARCHAR(128) NOT NULL,
         home_city VARCHAR(64) NOT NULL,
         home_country VARCHAR(64) NOT NULL,
@@ -52,9 +63,18 @@ export async function initDbSchema(): Promise<{ success: boolean; message: strin
         languages JSON,
         goals JSON,
         is_public BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email (email)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    // Ensure email & password_hash columns exist if table was already created earlier
+    try {
+      await db.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email VARCHAR(191) UNIQUE;`);
+      await db.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
+    } catch {
+      // Ignore if columns already present or MySQL version doesn't support IF NOT EXISTS in ALTER
+    }
 
     // 2. Taste Entities Table
     await db.query(`
